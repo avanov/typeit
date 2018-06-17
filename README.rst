@@ -3,8 +3,6 @@
 .. image:: https://travis-ci.org/avanov/typeit.svg?branch=develop
     :target: https://travis-ci.org/avanov/typeit
 
-.. image:: https://coveralls.io/repos/github/avanov/typeit/badge.svg?branch=develop
-    :target: https://coveralls.io/github/avanov/typeit?branch=develop
 
 .. image:: https://requires.io/github/avanov/typeit/requirements.svg?branch=develop
     :target: https://requires.io/github/avanov/typeit/requirements/?branch=develop
