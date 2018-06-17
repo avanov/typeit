@@ -8,8 +8,8 @@
     :target: https://requires.io/github/avanov/typeit/requirements/?branch=master
     :alt: Requirements Status
 
-.. image:: https://readthedocs.org/projects/typeit/badge/?version=develop
-    :target: http://typeit.readthedocs.org/en/develop/
+.. image:: https://readthedocs.org/projects/typeit/badge/?version=latest
+    :target: http://typeit.readthedocs.org/en/latest/
     :alt: Documentation Status
 
 .. image:: http://img.shields.io/pypi/v/typeit.svg
