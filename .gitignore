@@ -1,0 +1,37 @@
+.[oa]
+*~
+.py[co]
+__pycache__/
+.doit.db
+.idea/
+.cache/
+.pytest_cache/
+
+build/
+dist/
+*.egg-info/
+
+docs/_build
+
+*nose*
+*node_modules*
+# Ignore all test-related files (see setup.py -> setup(tests_require=[]))
+*coverage*
+# but keep the .coveragerc (for TravisCI/Coveralls services)
+!.coveragerc
+
+# Ignore vagrant box meta files
+.vagrant/
+*-console.log
+
+# Compass/Sass cache
+.sass-cache/
+
+# compiled pacific configs
+*.pconf
+
+# do not track contents of private directories
+*_priv/
+
+# ansible temporary files
+deploy/*.retry

@@ -1,0 +1,5 @@
+-r ./requirements.txt
+pytest==3.6.1
+coverage==4.5.1
+pytest-cov==2.5.1
+mypy==0.610

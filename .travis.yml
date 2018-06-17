@@ -1,0 +1,13 @@
+---
+sudo: false
+language: python
+cache: pip
+
+install:
+  - pip install -r ./requirements_test.txt
+python:
+  - "3.6"
+
+# --source specifies what packages to cover, you probably want to use that option
+script:
+    - py.test

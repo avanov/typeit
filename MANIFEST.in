@@ -1,0 +1,4 @@
+# https://docs.python.org/3/distutils/sourcedist.html#manifest
+include README.rst
+include LICENSE
+recursive-include typeit
