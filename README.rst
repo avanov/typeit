@@ -4,8 +4,8 @@
     :target: https://travis-ci.org/avanov/typeit
 
 
-.. image:: https://requires.io/github/avanov/typeit/requirements.svg?branch=develop
-    :target: https://requires.io/github/avanov/typeit/requirements/?branch=develop
+.. image:: https://requires.io/github/avanov/typeit/requirements.svg?branch=master
+    :target: https://requires.io/github/avanov/typeit/requirements/?branch=master
     :alt: Requirements Status
 
 .. image:: https://readthedocs.org/projects/typeit/badge/?version=develop
