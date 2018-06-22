@@ -5,18 +5,21 @@ from typeit import parser as p
 
 def test_parser_empty_struct():
     struct = {}
-    struct = p.construct_type('main', p.parse(struct, []))
+    struct = p.construct_type('main', p.parse(struct))
     assert p.codegen(struct, False) == "class Main(NamedTuple):\n    ...\n\n"
 
 
 def test_parser_github_pull_request_payload():
-    data = GITHUB_PR_PAYLOAD
-    struct = json.loads(data)
-    struct = p.construct_type('main', p.parse(struct, []))
-    p.codegen(struct)
+    data = GITHUB_PR_PAYLOAD_JSON
+    github_pr_dict = json.loads(data)
+    typ = p.construct_type('main', p.parse(github_pr_dict))
+    p.codegen(typ)
+    constructor = p.type_constructor(typ)
+    github_pr = constructor.deserialize(github_pr_dict)
+    assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
 
 
-GITHUB_PR_PAYLOAD = """
+GITHUB_PR_PAYLOAD_JSON = """
 {
   "action": "closed",
   "number": 1,

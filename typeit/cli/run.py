@@ -24,7 +24,7 @@ def main(args: argparse.Namespace):
         # source is None, read from stdin
         struct = json.load(sys.stdin)
 
-    struct = parser.construct_type('main', parser.parse(struct, []))
+    struct = parser.construct_type('main', parser.parse(struct))
     sys.stdout.write(parser.codegen(struct))
     sys.stdout.write('\n')
     sys.exit(0)
