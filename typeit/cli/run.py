@@ -1,5 +1,6 @@
 import argparse
 import json
+import yaml
 import sys
 from pathlib import Path
 
@@ -19,12 +20,21 @@ def main(args: argparse.Namespace):
     """
     try:
         with Path(args.source).open('r') as f:
-            struct = json.load(f)
+            struct = _read_data(f)
     except TypeError:
         # source is None, read from stdin
-        struct = json.load(sys.stdin)
+        struct = _read_data(sys.stdin)
 
-    struct = parser.construct_type('main', parser.parse(struct))
+    struct = parser.typeit(struct)
     sys.stdout.write(parser.codegen(struct))
     sys.stdout.write('\n')
     sys.exit(0)
+
+
+def _read_data(fd):
+    buf = fd.read()  # because stdin does not support seek
+    try:
+        struct = json.loads(buf)
+    except ValueError:
+        struct = yaml.load(buf)
+    return struct

@@ -1,6 +1,10 @@
 import json
+from typing import NamedTuple, Dict, Any
 
-from typeit import parser as p
+import colander
+import pytest
+
+from typeit import parser as p, typeit
 
 
 def test_parser_empty_struct():
@@ -9,12 +13,37 @@ def test_parser_empty_struct():
     assert p.codegen(struct, False) == "class Main(NamedTuple):\n    ...\n\n"
 
 
+def test_typeit():
+    x = {}
+    typeit(x)
+
+
+def test_type_with_dict():
+    """ Create a type with an explicit dictionary value
+    that can hold any kv pairs
+    """
+    class X(NamedTuple):
+        x: int
+        y: Dict[str, Any]
+
+    MkX = p.type_constructor(X)
+
+    with pytest.raises(colander.Invalid):
+        MkX({})
+
+    with pytest.raises(colander.Invalid):
+        MkX({'x': 1})
+
+    x: X = MkX({'x': 1, 'y': {'x': 1}})
+    assert x.x == x.y['x']
+
+
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
     typ = p.construct_type('main', p.parse(github_pr_dict))
     p.codegen(typ)
-    constructor = p.type_constructor(typ)
+    constructor = p._node_for_type(typ)
     github_pr = constructor.deserialize(github_pr_dict)
     assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
 

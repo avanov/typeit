@@ -9,6 +9,10 @@ import colander as col
 import typing_inspect as insp
 
 
+def typeit(dictionary: Dict):
+    return construct_type('main', parse(dictionary))
+
+
 BuiltinTypes = Union[
     bool,
     int,
@@ -203,23 +207,37 @@ def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     return None
 
 
+def _maybe_node_for_dict(typ) -> Optional[col.SchemaNode]:
+    """ This is mainly for cases when a user has manually
+    specified that a field should be a dictionary, rather than a
+    strict structure, possibly due to dynamic nature of keys
+    (for instance, python logging settings that have an infinite
+    set of possible attributes).
+    """
+    if insp.get_origin(typ) is Dict:
+        return col.SchemaNode(col.Mapping(unknown='preserve'))
+    return None
+
+
 def decide_node_type(typ) -> col.SchemaNode:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
     #        Type[List[Any]],
+    #        Type[Dict],
     #        NamedTuple]
     # I'm not adding ^ to the function signature, because mypy
     # is unable to narrow down `typ` to NamedTuple
-    # at line type_constructor(typ)
+    # at line _node_for_type(typ)
     node = (_maybe_node_for_builtin(typ) or
             _maybe_node_for_optional(typ) or
             _maybe_node_for_list(typ) or
-            type_constructor(typ))
+            _maybe_node_for_dict(typ) or
+            _node_for_type(typ))
     return node
 
 
-def type_constructor(typ: Type[Tuple]) -> col.SchemaNode:
+def _node_for_type(typ: Type[Tuple]) -> col.SchemaNode:
     constructor = col.SchemaNode(Structure(typ))
     for field_name, field_type in typ.__annotations__.items():
         source_name, __ = denormalize_name(field_name)
@@ -227,6 +245,10 @@ def type_constructor(typ: Type[Tuple]) -> col.SchemaNode:
         node_type.name = source_name
         constructor.add(node_type)
     return constructor
+
+
+def type_constructor(typ) -> Callable[[Dict], Any]:
+    return _node_for_type(typ).deserialize
 
 
 def codegen(typ: Type[Tuple],
