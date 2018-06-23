@@ -23,7 +23,7 @@ with (here / 'requirements.txt').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.1.1',
+      version='0.2.0',
       description='Type it!',
       long_description=README,
       classifiers=[

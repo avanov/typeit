@@ -1,5 +1,5 @@
 import json
-from typing import NamedTuple, Dict, Any
+from typing import NamedTuple, Dict, Any, Sequence
 
 import colander
 import pytest
@@ -16,6 +16,20 @@ def test_parser_empty_struct():
 def test_typeit():
     x = {}
     typeit(x)
+
+
+def test_type_with_sequence():
+    """ Create a type with an explicit dictionary value
+    that can hold any kv pairs
+    """
+    class X(NamedTuple):
+        x: int
+        y: Sequence[Any]
+
+    MkX = p.type_constructor(X)
+
+    x: X = MkX({'x': 1, 'y': []})
+    assert x.y == []
 
 
 def test_type_with_dict():
