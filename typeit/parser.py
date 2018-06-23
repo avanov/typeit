@@ -1,8 +1,8 @@
 import re
 from typing import (
     Type, Tuple, Optional, Any, Union, List,
-    Dict, NamedTuple, Callable
-)
+    Dict, NamedTuple, Callable,
+    Sequence)
 
 import inflection
 import colander as col
@@ -141,21 +141,41 @@ FIELD_TYPE_CLARIFIERS: Dict[Type, Callable] = {
 }
 
 
+NORMALIZATION_PREFIX = 'normalized__'
+
+RESERVED_WORDS = {
+    'and', 'del', 'from',
+    'not', 'while','as',
+    'elif', 'global', 'or',
+    'with','assert', 'else',
+    'if', 'pass', 'yield',
+    'break', 'except', 'import',
+    'print', 'class', 'exec',
+    'in', 'raise', 'continue',
+    'finally', 'is', 'return',
+    'def', 'for', 'lambda', 'try',
+}
+
+NORMALIZED_RESERVED_WORDS = {
+    f'{NORMALIZATION_PREFIX}{x}' for x in RESERVED_WORDS
+}
+
+
 def normalize_name(name: str,
                    pattern=re.compile('^([_0-9]+).*$')) -> Tuple[str, bool]:
     """ Some field name patterns are not allowed in NamedTuples
     https://docs.python.org/3.7/library/collections.html#collections.namedtuple
     """
-    if pattern.match(name):
-        return f'normalized__{name}', True
+    if name in RESERVED_WORDS or pattern.match(name):
+        return f'{NORMALIZATION_PREFIX}{name}', True
     return name, False
 
 
 def denormalize_name(name: str) -> Tuple[str, bool]:
     """ Undo normalize_name()
     """
-    if name.startswith('normalized__'):
-        return name[len('normalized__'):], True
+    if name in NORMALIZED_RESERVED_WORDS or name.startswith(NORMALIZATION_PREFIX):
+        return name[len(NORMALIZATION_PREFIX):], True
     return name, False
 
 
@@ -199,9 +219,9 @@ def _maybe_node_for_optional(typ) -> Optional[col.SchemaNode]:
 
 def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
-    if typ is List[Any]:
+    if typ in (List[Any], Sequence[Any]):
         return col.SequenceSchema(col.SchemaNode(col.Str(allow_empty=True)))
-    elif insp.get_origin(typ) is List:
+    elif insp.get_origin(typ) in (List, Sequence):
         inner = insp.get_last_args(typ)[0]
         return col.SequenceSchema(decide_node_type(inner))
     return None
