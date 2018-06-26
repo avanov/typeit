@@ -1,4 +1,5 @@
 import re
+import enum as std_enum
 from typing import (
     Type, Tuple, Optional, Any, Union, List,
     Dict, NamedTuple, Callable,
@@ -205,6 +206,12 @@ def _maybe_node_for_builtin(typ) -> Optional[col.SchemaNode]:
         return None
 
 
+def _maybe_node_for_enum(typ) -> Optional[col.SchemaNode]:
+    if issubclass(typ, std_enum.Enum):
+        return col.SchemaNode(Enum(typ, allow_empty=True))
+    return None
+
+
 def _maybe_node_for_optional(typ) -> Optional[col.SchemaNode]:
     # typ is Optional[T] where T is either unknown Any or a concrete type
     if typ is Optional[Any]:
@@ -244,6 +251,7 @@ def decide_node_type(typ) -> col.SchemaNode:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
     #        Type[List[Any]],
+    #        Type[Enum],
     #        Type[Dict],
     #        NamedTuple]
     # I'm not adding ^ to the function signature, because mypy
@@ -252,6 +260,7 @@ def decide_node_type(typ) -> col.SchemaNode:
     node = (_maybe_node_for_builtin(typ) or
             _maybe_node_for_optional(typ) or
             _maybe_node_for_list(typ) or
+            _maybe_node_for_enum(typ) or
             _maybe_node_for_dict(typ) or
             _node_for_type(typ))
     return node
@@ -322,6 +331,30 @@ class Int(col.Int):
         if r is col.null:
             return r
         return int(r)
+
+
+class Enum(col.Str):
+    def __init__(self, enum: Type[std_enum.Enum], *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.enum = enum
+
+    def serialize(self, node, appstruct):
+        """ Default colander integer serializer returns a string representation
+        of a number, whereas we want identical representation of the original data.
+        """
+        if appstruct is col.null:
+            return appstruct
+        r = super().serialize(node, appstruct.value)
+        return r
+
+    def deserialize(self, node, cstruct) -> std_enum.Enum:
+        r = super().deserialize(node, cstruct)
+        if r is col.null:
+            return r
+        try:
+            return self.enum(r)
+        except ValueError:
+            raise col.Invalid(node, f'Invalid variant of {self.enum.__name__}', cstruct)
 
 
 class Structure(col.Mapping):
