@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from typing import NamedTuple, Dict, Any, Sequence
 
 import colander
@@ -30,6 +31,25 @@ def test_type_with_sequence():
 
     x: X = MkX({'x': 1, 'y': []})
     assert x.y == []
+
+
+def test_type_with_empty_enum_variant():
+    class Types(Enum):
+        A = ''
+        B = 'b'
+
+    class X(NamedTuple):
+        x: int
+        y: Types
+
+    MkX = p.type_constructor(X)
+
+    for variant in Types:
+        x: X = MkX({'x': 1, 'y': variant.value})
+        assert x.y is variant
+
+    with pytest.raises(colander.Invalid):
+        x: X = MkX({'x': 1, 'y': None})
 
 
 def test_type_with_dict():
