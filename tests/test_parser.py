@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import NamedTuple, Dict, Any, Sequence
+from typing import NamedTuple, Dict, Any, Sequence, Union
 
 import colander
 import pytest
@@ -70,6 +70,34 @@ def test_type_with_dict():
 
     x: X = MkX({'x': 1, 'y': {'x': 1}})
     assert x.x == x.y['x']
+
+
+def test_type_with_unions():
+    class VariantA(NamedTuple):
+        variant_a: int
+
+    class VariantB(NamedTuple):
+        variant_b: int
+        variant_b_attr: int
+
+    class X(NamedTuple):
+        x: Union[None, VariantA, VariantB]
+
+    MkX = p.type_constructor(X)
+
+    x: X = MkX({'x': {'variant_a': 1}})
+    assert isinstance(x.x, VariantA)
+
+    x: X = MkX({'x': {'variant_b': 1, 'variant_b_attr': 1}})
+    assert isinstance(x.x, VariantB)
+
+    assert MkX({'x': None}) == MkX({})
+    with pytest.raises(colander.Invalid):
+        # this is not the same as MkX({}),
+        # the empty structure is passed as attribute x,
+        # which should match with only an empty named tuple definition,
+        # which is not the same as None.
+        MkX({'x': {}})
 
 
 def test_parser_github_pull_request_payload():
