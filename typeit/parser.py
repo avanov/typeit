@@ -5,6 +5,7 @@ from typing import (
     Dict, NamedTuple, Callable,
     Sequence, get_type_hints
 )
+import collections
 
 import inflection
 import colander as col
@@ -221,7 +222,10 @@ def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in (List[Any], Sequence[Any]):
         return col.SequenceSchema(col.SchemaNode(col.Str(allow_empty=True)))
-    elif insp.get_origin(typ) in (List, Sequence, list):
+    elif insp.get_origin(typ) in (List,
+                                  Sequence,
+                                  collections.abc.Sequence,
+                                  list):
         inner = insp.get_args(typ)[0]
         return col.SequenceSchema(decide_node_type(inner))
     return None

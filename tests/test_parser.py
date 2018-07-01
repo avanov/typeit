@@ -26,11 +26,13 @@ def test_type_with_sequence():
     class X(NamedTuple):
         x: int
         y: Sequence[Any]
+        z: Sequence[str]
 
     MkX = p.type_constructor(X)
 
-    x: X = MkX({'x': 1, 'y': []})
+    x: X = MkX({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
+    assert x.z[0] == 'Hello'
 
 
 def test_type_with_empty_enum_variant():
