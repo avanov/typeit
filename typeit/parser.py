@@ -184,7 +184,6 @@ def _maybe_node_for_builtin(typ) -> Optional[col.SchemaNode]:
 
 
 def _maybe_node_for_enum(typ) -> Optional[col.SchemaNode]:
-    print(typ, type(typ), insp.get_origin(typ), insp.get_origin(typ) is Sequence)
     if issubclass(typ, std_enum.Enum):
         return col.SchemaNode(schema.Enum(typ, allow_empty=True))
     return None
