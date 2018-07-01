@@ -1,8 +1,10 @@
 import enum as std_enum
+import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List,
     Dict, NamedTuple, Callable,
-    Sequence)
+    Sequence, get_type_hints
+)
 
 import inflection
 import colander as col
@@ -10,6 +12,9 @@ import typing_inspect as insp
 
 from .utils import normalize_name, denormalize_name
 from . import schema
+
+
+PY37 = sys.version_info[:2] == (3, 7)
 
 
 def typeit(dictionary: Dict):
@@ -44,6 +49,13 @@ JSON_TO_BUILTIN_TYPES = {
 
 _type_name_getter = lambda typ: typ.__name__
 
+if PY37:
+    # List, Dict, Any... for Python 3.7 (_name)
+    _annotation_name_getter = lambda typ: typ._name
+else:
+    # and 3.6(__name__)
+    _annotation_name_getter = lambda typ: typ.__name__
+
 
 BUILTIN_LITERALS_FOR_TYPES = {
     # Note that we don't have a record for Dict here,
@@ -53,7 +65,7 @@ BUILTIN_LITERALS_FOR_TYPES = {
     int: _type_name_getter,
     float: _type_name_getter,
     str: _type_name_getter,
-    List[Any]: _type_name_getter,
+    List[Any]: _annotation_name_getter,
     # We need explicit [Any] to avoid errors like:
     #   TypeError: Plain typing.Optional is not valid as type argument
     Optional[Any]: lambda __: 'Optional[Any]',
@@ -209,8 +221,8 @@ def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in (List[Any], Sequence[Any]):
         return col.SequenceSchema(col.SchemaNode(col.Str(allow_empty=True)))
-    elif insp.get_origin(typ) in (List, Sequence):
-        inner = insp.get_last_args(typ)[0]
+    elif insp.get_origin(typ) in (List, Sequence, list):
+        inner = insp.get_args(typ)[0]
         return col.SequenceSchema(decide_node_type(inner))
     return None
 
@@ -222,7 +234,7 @@ def _maybe_node_for_dict(typ) -> Optional[col.SchemaNode]:
     (for instance, python logging settings that have an infinite
     set of possible attributes).
     """
-    if insp.get_origin(typ) is Dict:
+    if insp.get_origin(typ) in (Dict, dict):
         return col.SchemaNode(col.Mapping(unknown='preserve'))
     return None
 
@@ -241,15 +253,15 @@ def decide_node_type(typ) -> col.SchemaNode:
     node = (_maybe_node_for_builtin(typ) or
             _maybe_node_for_union(typ) or
             _maybe_node_for_list(typ) or
-            _maybe_node_for_enum(typ) or
             _maybe_node_for_dict(typ) or
+            _maybe_node_for_enum(typ) or
             _node_for_type(typ))
     return node
 
 
 def _node_for_type(typ: Type[Tuple]) -> col.SchemaNode:
     constructor = col.SchemaNode(schema.Structure(typ))
-    for field_name, field_type in typ.__annotations__.items():
+    for field_name, field_type in get_type_hints(typ).items():
         source_name, __ = denormalize_name(field_name)
         node_type = decide_node_type(field_type)
         node_type.name = source_name
@@ -266,10 +278,11 @@ def codegen(typ: Type[Tuple],
             indent: int = 4) -> str:
     ind = ' ' * indent
     code = [f'class {typ.__name__}(NamedTuple):']
-    if not typ.__annotations__:
+    hints = get_type_hints(typ)
+    if not hints:
         code.extend([f'{ind}...', '', ''])
 
-    for field_name, field_type in typ.__annotations__.items():
+    for field_name, field_type in hints.items():
         type_literal = literal_for_type(field_type)
         if field_type not in BUILTIN_LITERALS_FOR_TYPES:
             # field_type: Union[NamedTuple, List]
