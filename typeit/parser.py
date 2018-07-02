@@ -198,7 +198,7 @@ def _maybe_node_for_union(typ) -> Optional[col.SchemaNode]:
         return None
 
     NoneClass = None.__class__
-    variants = insp.get_args(typ)
+    variants = insp.get_args(typ, evaluate=True)
     if variants in ((NoneClass, Any), (Any, NoneClass)):
         # Case for Optional[Any] and Union[None, Any] notations
         return col.SchemaNode(col.Str(allow_empty=True), missing=None)
@@ -226,7 +226,7 @@ def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
                                   Sequence,
                                   collections.abc.Sequence,
                                   list):
-        inner = insp.get_args(typ)[0]
+        inner = insp.get_args(typ, evaluate=True)[0]
         return col.SequenceSchema(decide_node_type(inner))
     return None
 
