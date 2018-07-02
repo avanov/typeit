@@ -84,16 +84,17 @@ def test_type_with_unions():
 
     class X(NamedTuple):
         x: Union[None, VariantA, VariantB]
+        y: Union[str, VariantA]
 
     MkX = p.type_constructor(X)
 
-    x: X = MkX({'x': {'variant_a': 1}})
+    x: X = MkX({'x': {'variant_a': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantA)
 
-    x: X = MkX({'x': {'variant_b': 1, 'variant_b_attr': 1}})
+    x: X = MkX({'x': {'variant_b': 1, 'variant_b_attr': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantB)
 
-    assert MkX({'x': None}) == MkX({})
+    assert MkX({'x': None, 'y': 'y'}) == MkX({'y': 'y'})
     with pytest.raises(colander.Invalid):
         # this is not the same as MkX({}),
         # the empty structure is passed as attribute x,

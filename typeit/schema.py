@@ -65,8 +65,6 @@ class UnionNode(col.Mapping):
             # therefore we must handle it separately
             return cstruct
 
-        # get the initial dictionary from our mapping base class
-        r = super().deserialize(node, cstruct)
         if cstruct is col.null:
             return cstruct
 
@@ -75,7 +73,7 @@ class UnionNode(col.Mapping):
         rv = None
         for variant in self.variants:
             try:
-                rv = variant.deserialize(r)
+                rv = variant.deserialize(cstruct)
                 break
             except col.Invalid:
                 continue
