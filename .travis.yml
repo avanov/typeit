@@ -12,7 +12,7 @@ python:
 
 # --source specifies what packages to cover, you probably want to use that option
 script:
-    - mypy --config-file setup.cfg --package typeit
+    # - mypy --config-file setup.cfg --package typeit
     - py.test
 
 after_success: coveralls

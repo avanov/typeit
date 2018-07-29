@@ -1,13 +1,17 @@
 import enum as std_enum
-from typing import Type, Tuple, NamedTuple, Sequence
+from typing import Type, Tuple, NamedTuple, Sequence, Union
 
 import colander as col
 
+from .sums import SumType
 from .utils import normalize_name, denormalize_name
 
 
+EnumLike = Union[std_enum.Enum, SumType]
+
+
 class Enum(col.Str):
-    def __init__(self, enum: Type[std_enum.Enum], *args, **kwargs) -> None:
+    def __init__(self, enum: Type[EnumLike], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.enum = enum
 
@@ -53,10 +57,10 @@ class Structure(col.Mapping):
         )
 
 
-class UnionNode(col.Mapping):
+class UnionNode(col.SchemaType):
     def __init__(self,
                  variants: Sequence[col.SchemaNode]) -> None:
-        super().__init__(unknown='preserve')
+        super().__init__()
         self.variants = variants
 
     def deserialize(self, node, cstruct):
@@ -82,12 +86,14 @@ class UnionNode(col.Mapping):
         return rv
 
     def serialize(self, node, appstruct: NamedTuple):
-        if appstruct is col.null:
-            return super().serialize(node, appstruct)
-        return super().serialize(
-            node,
-            {denormalize_name(k)[0]: v for k, v in appstruct._asdict().items()}
-        )
+        if appstruct in (col.null, None):
+            return None
+
+        for variant in self.variants:
+            try:
+                return variant.serialize(appstruct)
+            except col.Invalid:
+                continue
 
 
 class Int(col.Int):
@@ -100,3 +106,27 @@ class Int(col.Int):
         if r is col.null:
             return r
         return int(r)
+
+
+class Bool(col.Bool):
+
+    def serialize(self, node, appstruct):
+        """ Default colander bool serializer returns a string representation
+        of a boolean flag, whereas we want identical representation of the original data.
+        """
+        r = super().serialize(node, appstruct)
+        if r is col.null:
+            return r
+        return {'false': False, 'true': True}[r]
+
+
+class Str(col.Str):
+
+    def serialize(self, node, appstruct):
+        """ Default colander str serializer serializes None as 'None',
+        whereas we want identical representation of the original data.
+        """
+        r = super().serialize(node, appstruct)
+        if r in (col.null, 'None'):
+            return None
+        return r

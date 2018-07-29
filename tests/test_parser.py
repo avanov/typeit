@@ -6,6 +6,7 @@ import colander
 import pytest
 
 from typeit import parser as p, typeit
+from typeit.sums import SumType, Variant
 
 
 def test_parser_empty_struct():
@@ -28,11 +29,35 @@ def test_type_with_sequence():
         y: Sequence[Any]
         z: Sequence[str]
 
-    MkX = p.type_constructor(X)
+    MkX, serializer = p.type_constructor(X)
 
     x: X = MkX({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
     assert x.z[0] == 'Hello'
+
+
+def test_enum_like_types():
+    class Enums(Enum):
+        A = 'a'
+        B = 'b'
+
+    class Sums(SumType):
+        A: Variant[str]
+        B: Variant[str]
+
+    class X(NamedTuple):
+        e: Enums
+        s: Sums
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({'e': 'a', 's': 'b'})
+    assert isinstance(x.e, Enums)
+    assert isinstance(x.s, Sums)
+    assert isinstance(x.s('value'), Sums)
+
+    with pytest.raises(colander.Invalid):
+        x: X = MkX({'e': 'a', 's': None})
 
 
 def test_type_with_empty_enum_variant():
@@ -44,7 +69,7 @@ def test_type_with_empty_enum_variant():
         x: int
         y: Types
 
-    MkX = p.type_constructor(X)
+    MkX, serializer = p.type_constructor(X)
 
     for variant in Types:
         x: X = MkX({'x': 1, 'y': variant.value})
@@ -62,7 +87,7 @@ def test_type_with_dict():
         x: int
         y: Dict[str, Any]
 
-    MkX = p.type_constructor(X)
+    MkX, serializer = p.type_constructor(X)
 
     with pytest.raises(colander.Invalid):
         MkX({})
@@ -86,7 +111,7 @@ def test_type_with_unions():
         x: Union[None, VariantA, VariantB]
         y: Union[str, VariantA]
 
-    MkX = p.type_constructor(X)
+    MkX, serializer = p.type_constructor(X)
 
     x: X = MkX({'x': {'variant_a': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantA)
@@ -103,14 +128,30 @@ def test_type_with_unions():
         MkX({'x': {}})
 
 
+def test_type_with_primitive_union():
+    class X(NamedTuple):
+        x: Union[None, str]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({'x': None})
+    assert x.x is None
+
+    x: X = MkX({'x': 'test'})
+    assert x.x == 'test'
+
+
+
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
     typ = p.construct_type('main', p.parse(github_pr_dict))
     p.codegen(typ)
     constructor = p._node_for_type(typ)
+    serializer = constructor.serialize
     github_pr = constructor.deserialize(github_pr_dict)
     assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
+    assert github_pr_dict == serializer(github_pr)
 
 
 GITHUB_PR_PAYLOAD_JSON = """
