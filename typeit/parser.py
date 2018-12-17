@@ -12,6 +12,7 @@ import colander as col
 import typing_inspect as insp
 
 from .utils import normalize_name, denormalize_name
+from .sums import SumType
 from . import schema
 
 
@@ -184,7 +185,7 @@ def _maybe_node_for_builtin(typ) -> Optional[col.SchemaNode]:
 
 
 def _maybe_node_for_enum(typ) -> Optional[col.SchemaNode]:
-    if issubclass(typ, std_enum.Enum):
+    if issubclass(typ, (std_enum.Enum, SumType)):
         return col.SchemaNode(schema.Enum(typ, allow_empty=True))
     return None
 
@@ -201,7 +202,7 @@ def _maybe_node_for_union(typ) -> Optional[col.SchemaNode]:
     variants = insp.get_args(typ, evaluate=True)
     if variants in ((NoneClass, Any), (Any, NoneClass)):
         # Case for Optional[Any] and Union[None, Any] notations
-        return col.SchemaNode(col.Str(allow_empty=True), missing=None)
+        return col.SchemaNode(schema.Str(allow_empty=True), missing=None)
 
     allow_empty = NoneClass in variants
     node_variants = []
@@ -221,7 +222,7 @@ def _maybe_node_for_union(typ) -> Optional[col.SchemaNode]:
 def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in (List[Any], Sequence[Any]):
-        return col.SequenceSchema(col.SchemaNode(col.Str(allow_empty=True)))
+        return col.SequenceSchema(col.SchemaNode(schema.Str(allow_empty=True)))
     elif insp.get_origin(typ) in (List,
                                   Sequence,
                                   collections.abc.Sequence,
@@ -248,7 +249,7 @@ def decide_node_type(typ) -> col.SchemaNode:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
     #        Type[List[Any]],
-    #        Type[Enum],
+    #        Type[Union[Enum, SumType]],
     #        Type[Dict],
     #        NamedTuple]
     # I'm not adding ^ to the function signature, because mypy
@@ -273,8 +274,9 @@ def _node_for_type(typ: Type[Tuple]) -> col.SchemaNode:
     return constructor
 
 
-def type_constructor(typ) -> Callable[[Dict], Any]:
-    return _node_for_type(typ).deserialize
+def type_constructor(typ) -> Tuple[Callable[[Dict], Any], Callable[[NamedTuple], Any]]:
+    schema_node = _node_for_type(typ)
+    return schema_node.deserialize, schema_node.serialize
 
 
 def codegen(typ: Type[Tuple],
@@ -311,7 +313,7 @@ def codegen(typ: Type[Tuple],
 
     if top:
         code.extend(['', '',
-                     f'Make{typ.__name__} = type_constructor({typ.__name__})'])
+                     f'Mk{typ.__name__}, {typ.__name__}Serializer = type_constructor({typ.__name__})'])
 
         code = ['from typing import NamedTuple, Dict, Any, List, Optional',
                 'from typeit import type_constructor', '', ''] + code
@@ -319,8 +321,8 @@ def codegen(typ: Type[Tuple],
 
 
 BUILTIN_TO_SCHEMA_TYPES = {
-    str: col.Str(allow_empty=True),
+    str: schema.Str(allow_empty=True),
     int: schema.Int(),
     float: col.Float(),
-    bool: col.Bool(),
+    bool: schema.Bool(),
 }

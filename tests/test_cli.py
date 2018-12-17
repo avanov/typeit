@@ -11,4 +11,4 @@ def test_cli():
                 """
                 main(['gen'])
                 m_exit.assert_called_once_with(0)
-                assert 'MakeMain = type_constructor(Main)' in str(m_stdout.write.mock_calls[0])
+                assert 'MkMain, MainSerializer = type_constructor(Main)' in str(m_stdout.write.mock_calls[0])
