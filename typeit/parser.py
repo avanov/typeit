@@ -19,7 +19,11 @@ from . import schema
 PY37 = sys.version_info[:2] == (3, 7)
 
 
-def typeit(dictionary: Dict):
+def typeit(dictionary: Dict) -> NamedTuple:
+    """
+    :param dictionary: input struct represented as dictionary
+    that needs an equivalent fixed structure.
+    """
     return construct_type('main', parse(dictionary))
 
 
@@ -89,7 +93,7 @@ def literal_for_type(typ: Type) -> str:
         return typ.__name__
 
 
-class Component(NamedTuple):
+class FieldDefinition(NamedTuple):
     field_name: str
     field_type: Union[Any, NamedTuple]
 
@@ -99,15 +103,15 @@ def type_for(obj: JsonType) -> Type[JsonType]:
 
 
 def parse(struct: Dict[str, JsonType],
-          parent_prefix: str = '') -> List[Component]:
+          parent_prefix: str = '') -> List[FieldDefinition]:
     """ Parser's entry point
     """
-    components: List[Component] = []
+    definitions: List[FieldDefinition] = []
     for field_name, field_struct in struct.items():
         field_name, was_normalized = normalize_name(field_name)
         field_type = clarify_struct_type(field_name, field_struct, parent_prefix)
-        components.append(Component(field_name, field_type))
-    return components
+        definitions.append(FieldDefinition(field_name, field_type))
+    return definitions
 
 
 def clarify_struct_type(field_name: str,
@@ -158,7 +162,8 @@ FIELD_TYPE_CLARIFIERS: Dict[Type, Callable] = {
 }
 
 
-def construct_type(name: str, fields: List[Component]) -> NamedTuple:
+def construct_type(name: str,
+                   fields: List[FieldDefinition]) -> NamedTuple:
     """
     :param name: name of the type being constructed
     :param fields: flat sequence of fields the type will have
@@ -177,20 +182,20 @@ def construct_type(name: str, fields: List[Component]) -> NamedTuple:
     return NamedTuple(inflection.camelize(name), type_fields)
 
 
-def _maybe_node_for_builtin(typ) -> Optional[col.SchemaNode]:
+def _maybe_node_for_builtin(typ: Type) -> Optional[col.SchemaNode]:
     try:
         return col.SchemaNode(BUILTIN_TO_SCHEMA_TYPES[typ])
     except KeyError:
         return None
 
 
-def _maybe_node_for_enum(typ) -> Optional[col.SchemaNode]:
+def _maybe_node_for_enum(typ: Type) -> Optional[col.SchemaNode]:
     if issubclass(typ, (std_enum.Enum, SumType)):
         return col.SchemaNode(schema.Enum(typ, allow_empty=True))
     return None
 
 
-def _maybe_node_for_union(typ) -> Optional[col.SchemaNode]:
+def _maybe_node_for_union(typ: Type) -> Optional[col.SchemaNode]:
     """ handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -219,7 +224,7 @@ def _maybe_node_for_union(typ) -> Optional[col.SchemaNode]:
     return union_node
 
 
-def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
+def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in (List[Any], Sequence[Any]):
         return col.SequenceSchema(col.SchemaNode(schema.Str(allow_empty=True)))
@@ -232,7 +237,7 @@ def _maybe_node_for_list(typ) -> Optional[col.SequenceSchema]:
     return None
 
 
-def _maybe_node_for_dict(typ) -> Optional[col.SchemaNode]:
+def _maybe_node_for_dict(typ: Type) -> Optional[col.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
@@ -244,7 +249,7 @@ def _maybe_node_for_dict(typ) -> Optional[col.SchemaNode]:
     return None
 
 
-def decide_node_type(typ) -> col.SchemaNode:
+def decide_node_type(typ: Type[Union[Tuple, Any]]) -> col.SchemaNode:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
@@ -265,16 +270,21 @@ def decide_node_type(typ) -> col.SchemaNode:
 
 
 def _node_for_type(typ: Type[Tuple]) -> col.SchemaNode:
-    constructor = col.SchemaNode(schema.Structure(typ))
+    """ Generates a Colander schema for the given `typ` that is capable
+    of both constructing (deserializing) and serializing the `typ`.
+    """
+    type_schema = col.SchemaNode(schema.Structure(typ))
     for field_name, field_type in get_type_hints(typ).items():
         source_name, __ = denormalize_name(field_name)
         node_type = decide_node_type(field_type)
         node_type.name = source_name
-        constructor.add(node_type)
-    return constructor
+        type_schema.add(node_type)
+    return type_schema
 
 
 def type_constructor(typ) -> Tuple[Callable[[Dict], Any], Callable[[NamedTuple], Any]]:
+    """ Generate a constructor and a serializer for the given type
+    """
     schema_node = _node_for_type(typ)
     return schema_node.deserialize, schema_node.serialize
 
@@ -282,6 +292,13 @@ def type_constructor(typ) -> Tuple[Callable[[Dict], Any], Callable[[NamedTuple],
 def codegen(typ: Type[Tuple],
             top: bool = True,
             indent: int = 4) -> str:
+    """
+    :param typ: A type (NamedTuple definition) to generate a source for.
+    :param top: flag to indicate that a toplevel structure is to be generated.
+        When False, a sub-structure of the toplevel structure is to be generated.
+    :param indent: keep indentation for source lines.
+    :return:
+    """
     ind = ' ' * indent
     code = [f'class {typ.__name__}(NamedTuple):']
     hints = get_type_hints(typ)

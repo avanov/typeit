@@ -39,23 +39,33 @@ def test_enum_like_api():
 
 
 class Z(SumType):
-    VARIANT_A: Variant[str]
+    A: Variant[str]
 
-    class BData(NamedTuple):
+    class _BData(NamedTuple):
         x: str
         y: int
         z: float
-    VARIANT_B: Variant[BData]
+
+    B: Variant[_BData]
+    C: Variant[None]
 
 
 def test_sum_variants():
-    x = Z.VARIANT_A('111')
-    assert x.value == 'variant_a'
+    x = Z.A('111')
+    y = Z.B(x='1', y=2, z=3.0)
+    c = Z.C()
+
+    assert type(x) is Z
+    assert type(x) is type(y)
+    assert isinstance(x, Z)
+    assert isinstance(y, Z)
+
+    assert x.value == 'a'
     assert x.data == '111'
 
-    y = Z.VARIANT_B(x='1', y=2, z=3.0)
     assert y.data.x == '1'
     assert y.data.y == 2
     assert isinstance(y.data.z, float)
-    assert isinstance(y.data, Z.BData)
-    assert isinstance(y, Z)
+    assert isinstance(y.data, Z._BData)
+
+    assert c.data is None
