@@ -1,11 +1,9 @@
-import os
-
 from pathlib import Path
 from setuptools import setup
 from setuptools import find_packages
 
 
-here = Path(os.path.abspath(os.path.dirname(__file__)))
+here = Path(__file__).absolute().parent
 
 with (here / 'README.rst').open() as f:
     README = f.read()
@@ -23,7 +21,7 @@ with (here / 'requirements.txt').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.5.2',
+      version='0.6.0',
       description='Type it!',
       long_description=README,
       classifiers=[
