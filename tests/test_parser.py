@@ -157,8 +157,13 @@ def test_union_primitive_match():
     x: X = MkX({'x': 1.0})
     assert isinstance(x.x, float)
 
-    x: X = MkX({'x': True})
-    assert isinstance(x.x, bool)
+    if not p.PY36:
+        # Python 3.6 has a bug that drops bool types from
+        # unions that include int already, so
+        # x: Union[int, bool] -- will be reduced to just `x: int`
+        # x: Union[str, bool] -- will be left as is
+        x: X = MkX({'x': True})
+        assert isinstance(x.x, bool)
 
     x: X = MkX({'x': '1'})
     assert isinstance(x.x, str)

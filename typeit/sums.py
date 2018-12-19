@@ -76,7 +76,6 @@ class SumTypeMetaclass(type):
                                 'class X(SumType):\n'
                                 "    X: str = 'x'\n")
 
-            print(variant_constructors[attr_name])
             constructor = t_insp.get_args(
                 variant_constructors[attr_name]
             )[0]

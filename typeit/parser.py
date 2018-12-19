@@ -17,6 +17,7 @@ from . import schema
 
 
 PY37 = sys.version_info[:2] == (3, 7)
+PY36 = sys.version_info[:2] == (3, 6)
 
 
 def typeit(dictionary: Dict) -> NamedTuple:
