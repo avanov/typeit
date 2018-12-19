@@ -183,8 +183,11 @@ def construct_type(name: str,
 
 
 def _maybe_node_for_builtin(typ: Type) -> Optional[col.SchemaNode]:
+    """ Check if type could be associated with one of the
+    built-in type converters (in terms of Python built-ins).
+    """
     try:
-        return col.SchemaNode(BUILTIN_TO_SCHEMA_TYPES[typ])
+        return col.SchemaNode(schema.BUILTIN_TO_SCHEMA_TYPE[typ])
     except KeyError:
         return None
 
@@ -335,11 +338,3 @@ def codegen(typ: Type[Tuple],
         code = ['from typing import NamedTuple, Dict, Any, List, Optional',
                 'from typeit import type_constructor', '', ''] + code
     return '\n'.join(code)
-
-
-BUILTIN_TO_SCHEMA_TYPES = {
-    str: schema.Str(allow_empty=True),
-    int: schema.Int(),
-    float: col.Float(),
-    bool: schema.Bool(),
-}

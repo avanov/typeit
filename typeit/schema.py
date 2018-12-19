@@ -42,6 +42,9 @@ class Structure(col.Mapping):
         super().__init__(unknown)
         self.typ = typ
 
+    def __repr__(self):
+        return f'Structure(typ={self.typ})'
+
     def deserialize(self, node, cstruct):
         r = super().deserialize(node, cstruct)
         if r is col.null:
@@ -62,6 +65,7 @@ class UnionNode(col.SchemaType):
                  variants: Sequence[col.SchemaNode]) -> None:
         super().__init__()
         self.variants = variants
+        self.variant_types = {x.typ for x in variants}
 
     def deserialize(self, node, cstruct):
         if cstruct is None:
@@ -72,18 +76,39 @@ class UnionNode(col.SchemaType):
         if cstruct is col.null:
             return cstruct
 
+        # Firstly, let's see if `cstruct` is one of the primitive types
+        # supported by Python, and if this primitive type is specified
+        # among union variants. If it is, then we need to try
+        # a constructor of that primitive type first.
+        # We do it to support cases like `Union[str, int, float]`,
+        # where a value of 1.0 should be handled as float despite the
+        # fact that both str() and int() constructors can happily
+        # handle that value and return one of the expected variants
+        # (but incorrectly!)
+        prim_schema_type = BUILTIN_TO_SCHEMA_TYPE.get(type(cstruct))
+        if prim_schema_type in self.variant_types:
+            try:
+                return prim_schema_type.deserialize(node, cstruct)
+            except col.Invalid:
+                pass
+
         # next, iterate over available variants and return the first
         # matched structure.
-        rv = None
-        for variant in self.variants:
+        remaining_variants = (
+            x for x in self.variants
+            if x.typ is not prim_schema_type
+        )
+        for variant in remaining_variants:
             try:
-                rv = variant.deserialize(cstruct)
-                break
+                return variant.deserialize(cstruct)
             except col.Invalid:
                 continue
-        else:
-            raise col.Invalid(node, 'None of the variants matches provided data', cstruct)
-        return rv
+
+        raise col.Invalid(
+            node,
+            'None of the variants matches provided data. ',
+            cstruct
+        )
 
     def serialize(self, node, appstruct: NamedTuple):
         if appstruct in (col.null, None):
@@ -130,3 +155,11 @@ class Str(col.Str):
         if r in (col.null, 'None'):
             return None
         return r
+
+
+BUILTIN_TO_SCHEMA_TYPE = {
+    str: Str(allow_empty=True),
+    int: Int(),
+    float: col.Float(),
+    bool: Bool(),
+}

@@ -141,15 +141,36 @@ def test_type_with_primitive_union():
     assert x.x == 'test'
 
 
+def test_union_primitive_match():
+    class X(NamedTuple):
+        # here, str() accepts everything that could be passed to int(),
+        # and int() accepts everything that could be passed to float(),
+        # and we still want to get int values instead of string values,
+        # and float values instead of rounded int values.
+        x: Union[str, int, float, bool]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({'x': 1})
+    assert isinstance(x.x, int)
+
+    x: X = MkX({'x': 1.0})
+    assert isinstance(x.x, float)
+
+    x: X = MkX({'x': True})
+    assert isinstance(x.x, bool)
+
+    x: X = MkX({'x': '1'})
+    assert isinstance(x.x, str)
+
 
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
     typ = p.construct_type('main', p.parse(github_pr_dict))
     p.codegen(typ)
-    constructor = p._node_for_type(typ)
-    serializer = constructor.serialize
-    github_pr = constructor.deserialize(github_pr_dict)
+    constructor, serializer = p.type_constructor(typ)
+    github_pr = constructor(github_pr_dict)
     assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
     assert github_pr_dict == serializer(github_pr)
 
