@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import NamedTuple, Dict, Any, Sequence, Union
+from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional
 
 import colander
 import pytest
@@ -21,9 +21,6 @@ def test_typeit():
 
 
 def test_type_with_sequence():
-    """ Create a type with an explicit dictionary value
-    that can hold any kv pairs
-    """
     class X(NamedTuple):
         x: int
         y: Sequence[Any]
@@ -34,6 +31,82 @@ def test_type_with_sequence():
     x: X = MkX({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
     assert x.z[0] == 'Hello'
+
+
+def test_type_with_tuple_primitives():
+    # There are several forms of tuple declarations
+    # https://docs.python.org/3/library/typing.html#typing.Tuple
+    # We want to support all possible fixed-length tuples,
+    # including empty one
+    class X(NamedTuple):
+        a: Tuple[str, int]  # fixed N-tuple
+        b: Tuple            # the following are equivalent
+        c: tuple
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': ['value', '5'],
+        'b': (),
+        'c': [],
+        'd': ['Hello', 'Random', 'Value', 5, None, True, {}],
+    })
+    assert x.a == ('value', 5)
+    assert x.b == ()
+    assert x.b == x.c
+
+    with pytest.raises(colander.Invalid):
+        # 'abc' is not int
+        x: X = MkX({
+            'a': ['value', 'abc'],
+            'b': [],
+            'c': [],
+        })
+
+    with pytest.raises(colander.Invalid):
+        # .c field is required
+        x: X = MkX({
+            'a': ['value', 5],
+            'b': [],
+        })
+
+    with pytest.raises(colander.Invalid):
+        # .c field is required to be fixed sequence
+        x: X = MkX({
+            'a': ['value', 'abc'],
+            'b': (),
+            'c': None,
+        })
+
+
+def test_type_with_complex_tuples():
+    class Y(NamedTuple):
+        a: Dict
+
+    class X(NamedTuple):
+        a: Tuple[Tuple[Dict, Y], int]
+        b: Optional[Any]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': [
+            [{}, {'a': {'inner': 'value'}}],
+            5
+        ],
+    })
+    assert isinstance(x.a[0][1], Y)
+    assert isinstance(x.a[1], int)
+    assert x.b is None
+
+    x: X = MkX({
+        'a': [
+            [{}, {'a': {'inner': 'value'}}],
+            5
+        ],
+        'b': Y(a={})
+    })
+    assert isinstance(x.b, Y)
 
 
 def test_enum_like_types():

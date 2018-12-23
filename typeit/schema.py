@@ -1,5 +1,5 @@
 import enum as std_enum
-from typing import Type, Tuple, NamedTuple, Sequence, Union
+from typing import Type, Tuple, NamedTuple, Sequence, Union, Any
 
 import colander as col
 
@@ -8,6 +8,17 @@ from .utils import normalize_name, denormalize_name
 
 
 EnumLike = Union[std_enum.Enum, SumType]
+
+
+class AcceptEverything(col.SchemaType):
+    """ A schema type to correspond to typing.Any, i.e. allows
+    any data to pass through the type constructor.
+    """
+    def serialize(self, node, appstruct):
+        return appstruct
+
+    def deserialize(self, node, cstruct):
+        return cstruct
 
 
 class Enum(col.Str):
@@ -157,7 +168,16 @@ class Str(col.Str):
         return r
 
 
+class SchemaNode(col.SchemaNode):
+    """ Colander's SchemaNode doesn't show node type in it's repr,
+    we fix it with this subclass.
+    """
+    def __repr__(self) -> str:
+        return f'SchemaNode({self.typ})'
+
+
 BUILTIN_TO_SCHEMA_TYPE = {
+    Any: AcceptEverything(),
     str: Str(allow_empty=True),
     int: Int(),
     float: col.Float(),

@@ -183,23 +183,23 @@ def construct_type(name: str,
     return NamedTuple(inflection.camelize(name), type_fields)
 
 
-def _maybe_node_for_builtin(typ: Type) -> Optional[col.SchemaNode]:
+def _maybe_node_for_builtin(typ: Type) -> Optional[schema.SchemaNode]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
     try:
-        return col.SchemaNode(schema.BUILTIN_TO_SCHEMA_TYPE[typ])
+        return schema.SchemaNode(schema.BUILTIN_TO_SCHEMA_TYPE[typ])
     except KeyError:
         return None
 
 
-def _maybe_node_for_enum(typ: Type) -> Optional[col.SchemaNode]:
+def _maybe_node_for_enum(typ: Type) -> Optional[schema.SchemaNode]:
     if issubclass(typ, (std_enum.Enum, SumType)):
-        return col.SchemaNode(schema.Enum(typ, allow_empty=True))
+        return schema.SchemaNode(schema.Enum(typ, allow_empty=True))
     return None
 
 
-def _maybe_node_for_union(typ: Type) -> Optional[col.SchemaNode]:
+def _maybe_node_for_union(typ: Type) -> Optional[schema.SchemaNode]:
     """ handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -211,7 +211,7 @@ def _maybe_node_for_union(typ: Type) -> Optional[col.SchemaNode]:
     variants = insp.get_args(typ, evaluate=True)
     if variants in ((NoneClass, Any), (Any, NoneClass)):
         # Case for Optional[Any] and Union[None, Any] notations
-        return col.SchemaNode(schema.Str(allow_empty=True), missing=None)
+        return schema.SchemaNode(schema.AcceptEverything(), missing=None)
 
     allow_empty = NoneClass in variants
     node_variants = []
@@ -222,7 +222,7 @@ def _maybe_node_for_union(typ: Type) -> Optional[col.SchemaNode]:
         if allow_empty:
             node.missing = None
         node_variants.append(node)
-    union_node = col.SchemaNode(schema.UnionNode(variants=node_variants))
+    union_node = schema.SchemaNode(schema.UnionNode(variants=node_variants))
     if allow_empty:
         union_node.missing = None
     return union_node
@@ -231,7 +231,7 @@ def _maybe_node_for_union(typ: Type) -> Optional[col.SchemaNode]:
 def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in (List[Any], Sequence[Any]):
-        return col.SequenceSchema(col.SchemaNode(schema.Str(allow_empty=True)))
+        return col.SequenceSchema(schema.SchemaNode(schema.AcceptEverything()))
     elif insp.get_origin(typ) in (List,
                                   Sequence,
                                   collections.abc.Sequence,
@@ -241,7 +241,28 @@ def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
     return None
 
 
-def _maybe_node_for_dict(typ: Type) -> Optional[col.SchemaNode]:
+def _maybe_node_for_tuple(typ: Type) -> Optional[col.TupleSchema]:
+    if typ is tuple or insp.get_origin(typ) in (tuple, Tuple):
+        inner_types = insp.get_args(typ, evaluate=True)
+        if Ellipsis in inner_types:
+            raise TypeError(
+                f'You are trying to create a constructor for '
+                f'the type "{typ}", however, variable-length tuples '
+                f'are not supported by typeit. '
+                f'Use Sequence or List if you want to have a '
+                f'variable-length collection, and consider '
+                f'pyrsistent.pvector for immutability.'
+            )
+        node = col.TupleSchema()
+        # Add tuple elements to the tuple node definition
+        inner_nodes = (decide_node_type(t) for t in inner_types)
+        for n in inner_nodes:
+            node.add(n)
+        return node
+    return None
+
+
+def _maybe_node_for_dict(typ: Type) -> Optional[schema.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
@@ -249,15 +270,16 @@ def _maybe_node_for_dict(typ: Type) -> Optional[col.SchemaNode]:
     set of possible attributes).
     """
     if insp.get_origin(typ) in (Dict, dict):
-        return col.SchemaNode(col.Mapping(unknown='preserve'))
+        return schema.SchemaNode(col.Mapping(unknown='preserve'))
     return None
 
 
-def decide_node_type(typ: Type[Union[Tuple, Any]]) -> col.SchemaNode:
+def decide_node_type(typ: Type[Union[Tuple, Any]]) -> schema.SchemaNode:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
     #        Type[List[Any]],
+    #        Type[Tuple],
     #        Type[Union[Enum, SumType]],
     #        Type[Dict],
     #        NamedTuple]
@@ -267,17 +289,18 @@ def decide_node_type(typ: Type[Union[Tuple, Any]]) -> col.SchemaNode:
     node = (_maybe_node_for_builtin(typ) or
             _maybe_node_for_union(typ) or
             _maybe_node_for_list(typ) or
+            _maybe_node_for_tuple(typ) or
             _maybe_node_for_dict(typ) or
             _maybe_node_for_enum(typ) or
             _node_for_type(typ))
     return node
 
 
-def _node_for_type(typ: Type[Tuple]) -> col.SchemaNode:
+def _node_for_type(typ: Type[Tuple]) -> schema.SchemaNode:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
-    type_schema = col.SchemaNode(schema.Structure(typ))
+    type_schema = schema.SchemaNode(schema.Structure(typ))
     for field_name, field_type in get_type_hints(typ).items():
         source_name, __ = denormalize_name(field_name)
         node_type = decide_node_type(field_type)
