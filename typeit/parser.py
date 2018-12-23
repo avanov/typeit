@@ -1,10 +1,10 @@
 import enum as std_enum
 import sys
 from typing import (
-    Type, Tuple, Optional, Any, Union, List,
+    Type, Tuple, Optional, Any, Union, List, Set,
     Dict, NamedTuple, Callable,
-    Sequence, get_type_hints
-)
+    Sequence, get_type_hints,
+    MutableSet, TypeVar, FrozenSet)
 import collections
 
 import inflection
@@ -193,8 +193,25 @@ def _maybe_node_for_builtin(typ: Type) -> Optional[schema.SchemaNode]:
         return None
 
 
+def _maybe_node_for_type_var(typ: Type) -> Optional[schema.SchemaNode]:
+    """ When we parse Sequence and List definitions without
+    clarified item type, it is possible that this item is defined
+    as TypeVar. Since it's an indicator of a generic collection,
+    we can treat it as typing.Any.
+    """
+    if isinstance(typ, TypeVar):
+        return _maybe_node_for_builtin(Any)
+    return None
+
+
 def _maybe_node_for_enum(typ: Type) -> Optional[schema.SchemaNode]:
-    if issubclass(typ, (std_enum.Enum, SumType)):
+    try:
+        is_enum = issubclass(typ, (std_enum.Enum, SumType))
+    except TypeError:
+        # TypeError: issubclass() arg 1 must be a class
+        is_enum = False
+
+    if is_enum:
         return schema.SchemaNode(schema.Enum(typ, allow_empty=True))
     return None
 
@@ -230,14 +247,46 @@ def _maybe_node_for_union(typ: Type) -> Optional[schema.SchemaNode]:
 
 def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
-    if typ in (List[Any], Sequence[Any]):
-        return col.SequenceSchema(schema.SchemaNode(schema.AcceptEverything()))
-    elif insp.get_origin(typ) in (List,
+    if insp.get_origin(typ) in (List,
                                   Sequence,
                                   collections.abc.Sequence,
                                   list):
-        inner = insp.get_args(typ, evaluate=True)[0]
+        try:
+            inner = insp.get_args(typ, evaluate=True)[0]
+        except IndexError:
+            # In case of a non-clarified collection
+            # (collection without defined item type),
+            # Python 3.6 will have empty inner type,
+            # whereas Python 3.7 will contain a single TypeVar.
+            inner = Any
         return col.SequenceSchema(decide_node_type(inner))
+    return None
+
+
+def _maybe_node_for_set(typ: Type) -> Optional[col.SequenceSchema]:
+    origin = insp.get_origin(typ)
+    is_set = typ in (set, frozenset)
+    if is_set or origin in (Set,
+                            MutableSet,
+                            FrozenSet,
+                            collections.abc.Set,
+                            collections.abc.MutableSet,
+                            set,
+                            frozenset):
+        try:
+            inner = insp.get_args(typ, evaluate=True)[0]
+        except IndexError:
+            # In case of a non-clarified set (set without defined collection item type),
+            # Python 3.6 will have empty inner type,
+            # whereas Python 3.7 will contain a single TypeVar.
+            inner = Any
+        return schema.SetSchema(
+            decide_node_type(inner),
+            frozen=(
+                typ is frozenset or
+                origin in (frozenset, FrozenSet)
+            )
+        )
     return None
 
 
@@ -280,6 +329,7 @@ def decide_node_type(typ: Type[Union[Tuple, Any]]) -> schema.SchemaNode:
     #        Type[Optional[Any]],
     #        Type[List[Any]],
     #        Type[Tuple],
+    #        Type[Set],
     #        Type[Union[Enum, SumType]],
     #        Type[Dict],
     #        NamedTuple]
@@ -287,23 +337,34 @@ def decide_node_type(typ: Type[Union[Tuple, Any]]) -> schema.SchemaNode:
     # is unable to narrow down `typ` to NamedTuple
     # at line _node_for_type(typ)
     node = (_maybe_node_for_builtin(typ) or
+            _maybe_node_for_type_var(typ) or
             _maybe_node_for_union(typ) or
             _maybe_node_for_list(typ) or
             _maybe_node_for_tuple(typ) or
             _maybe_node_for_dict(typ) or
+            _maybe_node_for_set(typ) or
             _maybe_node_for_enum(typ) or
+            # it's a user-defined type, parse further
             _node_for_type(typ))
     return node
 
 
-def _node_for_type(typ: Type[Tuple]) -> schema.SchemaNode:
+def _node_for_type(typ: Type[Tuple]) -> Optional[schema.SchemaNode]:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
+    if type(typ) is not type:
+        return None
+
     type_schema = schema.SchemaNode(schema.Structure(typ))
     for field_name, field_type in get_type_hints(typ).items():
         source_name, __ = denormalize_name(field_name)
         node_type = decide_node_type(field_type)
+        if node_type is None:
+            raise TypeError(
+                f'Cannot recognise type "{field_type}" of the field '
+                f'"{typ.__name__}.{field_name}" (from {typ.__module__})'
+            )
         node_type.name = source_name
         type_schema.add(node_type)
     return type_schema
@@ -313,6 +374,10 @@ def type_constructor(typ) -> Tuple[Callable[[Dict], Any], Callable[[NamedTuple],
     """ Generate a constructor and a serializer for the given type
     """
     schema_node = _node_for_type(typ)
+    if not schema_node:
+        raise TypeError(
+            f'Cannot create a type constructor for {typ}'
+        )
     return schema_node.deserialize, schema_node.serialize
 
 

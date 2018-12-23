@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional
+from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet
 
 import colander
 import pytest
@@ -18,6 +18,19 @@ def test_parser_empty_struct():
 def test_typeit():
     x = {}
     typeit(x)
+
+
+def test_type_with_unclarified_list():
+    class X(NamedTuple):
+        x: Sequence
+        y: List
+
+    MkX, serializer = p.type_constructor(X)
+    x: X = MkX({'x': [], 'y': []})
+    x: X = MkX({'x': [1], 'y': ['1']})
+    assert x.x[0] == int(x.y[0])
+    x: X = MkX({'x': ['Hello'], 'y': ['World']})
+    assert f'{x.x[0]} {x.y[0]}' == 'Hello World'
 
 
 def test_type_with_sequence():
@@ -150,6 +163,36 @@ def test_type_with_empty_enum_variant():
 
     with pytest.raises(colander.Invalid):
         x: X = MkX({'x': 1, 'y': None})
+
+
+def test_type_with_set():
+    class X(NamedTuple):
+        a: FrozenSet
+        b: FrozenSet[Any]
+        c: frozenset
+        d: FrozenSet[int]
+        e: set
+        f: Set
+        g: Set[Any]
+        h: Set[int]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': [],
+        'b': [],
+        'c': [],
+        'd': [1],
+        'e': [],
+        'f': [],
+        'g': [],
+        'h': ['1'],
+    })
+    assert x.a == x.b == x.c == frozenset()
+    assert isinstance(x.d, frozenset)
+    assert isinstance(x.e, set)
+    assert x.h == {1}
+    assert x.d == x.h
 
 
 def test_type_with_dict():
