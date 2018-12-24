@@ -7,11 +7,10 @@ from typing import (
     MutableSet, TypeVar, FrozenSet)
 import collections
 
-import inflection
 import colander as col
 import typing_inspect as insp
 
-from .utils import normalize_name, denormalize_name
+from .definitions import OverridesT
 from .sums import SumType
 from . import schema
 
@@ -19,171 +18,16 @@ from . import schema
 PY37 = sys.version_info[:2] == (3, 7)
 PY36 = sys.version_info[:2] == (3, 6)
 
-
-def typeit(dictionary: Dict) -> NamedTuple:
-    """
-    :param dictionary: input struct represented as dictionary
-    that needs an equivalent fixed structure.
-    """
-    return construct_type('main', parse(dictionary))
-
-
-BuiltinTypes = Union[
-    bool,
-    int,
-    float,
-    str,
-]
-
-JsonType = Union[
-    BuiltinTypes,
-    List[Any],
-    Dict[str, Any],
-    None
+TypeTools = Tuple[
+    Callable[[Dict], Any],
+    Callable[[NamedTuple], Any]
 ]
 
 
-JSON_TO_BUILTIN_TYPES = {
-    True.__class__: bool,
-    (0).__class__: int,
-    (0.0).__class__: float,
-    ''.__class__: str,
-    [].__class__: List[Any],
-    {}.__class__: Dict[str, Any],
-    None.__class__: Optional[Any],
-}
-
-
-_type_name_getter = lambda typ: typ.__name__
-
-if PY37:
-    # List, Dict, Any... for Python 3.7 (_name)
-    _annotation_name_getter = lambda typ: typ._name
-else:
-    # and 3.6(__name__)
-    _annotation_name_getter = lambda typ: typ.__name__
-
-
-BUILTIN_LITERALS_FOR_TYPES = {
-    # Note that we don't have a record for Dict here,
-    # because it is clarified to a concrete NamedTuple
-    # earlier in the parsing process.
-    bool: _type_name_getter,
-    int: _type_name_getter,
-    float: _type_name_getter,
-    str: _type_name_getter,
-    List[Any]: _annotation_name_getter,
-    # We need explicit [Any] to avoid errors like:
-    #   TypeError: Plain typing.Optional is not valid as type argument
-    Optional[Any]: lambda __: 'Optional[Any]',
-}
-
-
-def literal_for_type(typ: Type) -> str:
-    # typ is either one of these:
-    #   * builtin type
-    #   * concrete NamedTuple
-    #   * clarified List (i.e. non List[Any])
-    try:
-        return BUILTIN_LITERALS_FOR_TYPES[typ](typ)
-    except KeyError:
-        if typ.__class__ is List.__class__:
-            sub_type = literal_for_type(typ.__args__[0])
-            return f'List[{sub_type}]'
-        # typ: NamedTuple
-        return typ.__name__
-
-
-class FieldDefinition(NamedTuple):
-    field_name: str
-    field_type: Union[Any, NamedTuple]
-
-
-def type_for(obj: JsonType) -> Type[JsonType]:
-    return JSON_TO_BUILTIN_TYPES[obj.__class__]
-
-
-def parse(struct: Dict[str, JsonType],
-          parent_prefix: str = '') -> List[FieldDefinition]:
-    """ Parser's entry point
-    """
-    definitions: List[FieldDefinition] = []
-    for field_name, field_struct in struct.items():
-        field_name, was_normalized = normalize_name(field_name)
-        field_type = clarify_struct_type(field_name, field_struct, parent_prefix)
-        definitions.append(FieldDefinition(field_name, field_type))
-    return definitions
-
-
-def clarify_struct_type(field_name: str,
-                        field_struct: Any,
-                        parent_prefix: str) -> Type:
-    field_type = type_for(field_struct)
-    clarifier: Callable[[str, Any, str], Type] = FIELD_TYPE_CLARIFIERS[field_type]
-    field_type = clarifier(field_name, field_struct, parent_prefix)
-    return field_type
-
-
-def clarify_field_type_dict(field_name: str,
-                            field_struct: Dict[str, Any],
-                            parent_prefix: str) -> NamedTuple:
-    """ Constructs a new type based on a provided `field_struct`.
-    Literally, transforms a dictionary structure to a named tuple structure.
-    """
-    if parent_prefix:
-        type_name = f'{parent_prefix}_{field_name}'
-    else:
-        type_name = field_name
-    sub_struct = parse(field_struct, type_name)
-    field_type = construct_type(type_name, sub_struct)
-    return field_type
-
-
-def clarify_field_type_list(field_name: str,
-                            field_struct: List[Any],
-                            parent_prefix: str) -> Type[List[Union[Any, NamedTuple]]]:
-    """ Clarifies a list type from List to List[T] where T is Any | SomeConcreteType.
-    """
-    if len(field_struct):
-        inner_struct = field_struct[0]
-        field_type = clarify_struct_type(field_name, inner_struct, parent_prefix)
-        # this is a dynamic signature constructor that mypy won't be able to infer
-        return List[field_type]  # type: ignore
-    return List[Any]
-
-
-FIELD_TYPE_CLARIFIERS: Dict[Type, Callable] = {
-    str: lambda a, b, c: str,
-    int: lambda a, b, c: int,
-    float: lambda a, b, c: float,
-    bool: lambda a, b, c: bool,
-    Optional[Any]: lambda a, b, c: Optional[Any],
-    Dict[str, Any]: clarify_field_type_dict,
-    List[Any]: clarify_field_type_list,
-}
-
-
-def construct_type(name: str,
-                   fields: List[FieldDefinition]) -> NamedTuple:
-    """
-    :param name: name of the type being constructed
-    :param fields: flat sequence of fields the type will have
-    :return: a new type based on a NamedTuple
-    """
-    type_fields: List[Tuple[str, NamedTuple]] = []
-    for c in fields:
-        # This was not reachable:
-        # if c.field_type is Dict[str, Any]:
-        #    sub_type_name = inflection.camelize(f'{name}_{c.field_name}')
-        #    field_type = construct_type(sub_type_name, c.field_type)
-        # else:
-        field_type = c.field_type
-        type_fields.append((c.field_name, field_type))
-
-    return NamedTuple(inflection.camelize(name), type_fields)
-
-
-def _maybe_node_for_builtin(typ: Type) -> Optional[schema.SchemaNode]:
+def _maybe_node_for_builtin(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
@@ -193,18 +37,24 @@ def _maybe_node_for_builtin(typ: Type) -> Optional[schema.SchemaNode]:
         return None
 
 
-def _maybe_node_for_type_var(typ: Type) -> Optional[schema.SchemaNode]:
+def _maybe_node_for_type_var(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
     """ When we parse Sequence and List definitions without
     clarified item type, it is possible that this item is defined
     as TypeVar. Since it's an indicator of a generic collection,
     we can treat it as typing.Any.
     """
     if isinstance(typ, TypeVar):
-        return _maybe_node_for_builtin(Any)
+        return _maybe_node_for_builtin(Any, overrides)
     return None
 
 
-def _maybe_node_for_enum(typ: Type) -> Optional[schema.SchemaNode]:
+def _maybe_node_for_enum(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
     try:
         is_enum = issubclass(typ, (std_enum.Enum, SumType))
     except TypeError:
@@ -216,7 +66,10 @@ def _maybe_node_for_enum(typ: Type) -> Optional[schema.SchemaNode]:
     return None
 
 
-def _maybe_node_for_union(typ: Type) -> Optional[schema.SchemaNode]:
+def _maybe_node_for_union(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
     """ handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -235,7 +88,7 @@ def _maybe_node_for_union(typ: Type) -> Optional[schema.SchemaNode]:
     for variant in variants:
         if variant is NoneClass:
             continue
-        node = decide_node_type(variant)
+        node = decide_node_type(variant, overrides)
         if allow_empty:
             node.missing = None
         node_variants.append(node)
@@ -245,7 +98,10 @@ def _maybe_node_for_union(typ: Type) -> Optional[schema.SchemaNode]:
     return union_node
 
 
-def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
+def _maybe_node_for_list(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if insp.get_origin(typ) in (List,
                                   Sequence,
@@ -259,11 +115,14 @@ def _maybe_node_for_list(typ: Type) -> Optional[col.SequenceSchema]:
             # Python 3.6 will have empty inner type,
             # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
-        return col.SequenceSchema(decide_node_type(inner))
+        return col.SequenceSchema(decide_node_type(inner, overrides))
     return None
 
 
-def _maybe_node_for_set(typ: Type) -> Optional[col.SequenceSchema]:
+def _maybe_node_for_set(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[col.SequenceSchema]:
     origin = insp.get_origin(typ)
     is_set = typ in (set, frozenset)
     if is_set or origin in (Set,
@@ -281,7 +140,7 @@ def _maybe_node_for_set(typ: Type) -> Optional[col.SequenceSchema]:
             # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
         return schema.SetSchema(
-            decide_node_type(inner),
+            decide_node_type(inner, overrides),
             frozen=(
                 typ is frozenset or
                 origin in (frozenset, FrozenSet)
@@ -290,7 +149,10 @@ def _maybe_node_for_set(typ: Type) -> Optional[col.SequenceSchema]:
     return None
 
 
-def _maybe_node_for_tuple(typ: Type) -> Optional[col.TupleSchema]:
+def _maybe_node_for_tuple(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[col.TupleSchema]:
     if typ is tuple or insp.get_origin(typ) in (tuple, Tuple):
         inner_types = insp.get_args(typ, evaluate=True)
         if Ellipsis in inner_types:
@@ -304,14 +166,17 @@ def _maybe_node_for_tuple(typ: Type) -> Optional[col.TupleSchema]:
             )
         node = col.TupleSchema()
         # Add tuple elements to the tuple node definition
-        inner_nodes = (decide_node_type(t) for t in inner_types)
+        inner_nodes = (decide_node_type(t, overrides) for t in inner_types)
         for n in inner_nodes:
             node.add(n)
         return node
     return None
 
 
-def _maybe_node_for_dict(typ: Type) -> Optional[schema.SchemaNode]:
+def _maybe_node_for_dict(
+    typ: Type,
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
@@ -323,7 +188,53 @@ def _maybe_node_for_dict(typ: Type) -> Optional[schema.SchemaNode]:
     return None
 
 
-def decide_node_type(typ: Type[Union[Tuple, Any]]) -> schema.SchemaNode:
+def _node_for_type(
+    typ: Type[Tuple],
+    overrides: OverridesT
+) -> Optional[schema.SchemaNode]:
+    """ Generates a Colander schema for the given `typ` that is capable
+    of both constructing (deserializing) and serializing the `typ`.
+    """
+    if type(typ) is not type:
+        return None
+
+    type_schema = schema.SchemaNode(schema.Structure(typ, overrides))
+    for field_name, field_type in get_type_hints(typ).items():
+        # apply field override, if available
+        field = getattr(typ, field_name)
+        serialized_field_name = overrides.get(field, field_name)
+
+        node_type = decide_node_type(field_type, overrides)
+        if node_type is None:
+            raise TypeError(
+                f'Cannot recognise type "{field_type}" of the field '
+                f'"{typ.__name__}.{field_name}" (from {typ.__module__})'
+            )
+        node_type.name = serialized_field_name
+        type_schema.add(node_type)
+    return type_schema
+
+
+PARSING_ORDER = [
+    _maybe_node_for_builtin,
+    _maybe_node_for_type_var,
+    _maybe_node_for_union,
+    _maybe_node_for_list,
+    _maybe_node_for_tuple,
+    _maybe_node_for_dict,
+    _maybe_node_for_set,
+    _maybe_node_for_enum,
+    # at this point it could be a user-defined type,
+    # so the parser may do another recursive iteration
+    # through the same plan
+    _node_for_type,
+]
+
+
+def decide_node_type(
+    typ: Type[Union[Tuple, Any]],
+    overrides: OverridesT
+) -> schema.SchemaNode:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
@@ -336,94 +247,29 @@ def decide_node_type(typ: Type[Union[Tuple, Any]]) -> schema.SchemaNode:
     # I'm not adding ^ to the function signature, because mypy
     # is unable to narrow down `typ` to NamedTuple
     # at line _node_for_type(typ)
-    node = (_maybe_node_for_builtin(typ) or
-            _maybe_node_for_type_var(typ) or
-            _maybe_node_for_union(typ) or
-            _maybe_node_for_list(typ) or
-            _maybe_node_for_tuple(typ) or
-            _maybe_node_for_dict(typ) or
-            _maybe_node_for_set(typ) or
-            _maybe_node_for_enum(typ) or
-            # it's a user-defined type, parse further
-            _node_for_type(typ))
-    return node
+    for step in PARSING_ORDER:
+        node = step(typ, overrides)
+        if node:
+            return node
+    raise TypeError(
+        f'Unable to create a node for "{typ}".'
+    )
 
 
-def _node_for_type(typ: Type[Tuple]) -> Optional[schema.SchemaNode]:
-    """ Generates a Colander schema for the given `typ` that is capable
-    of both constructing (deserializing) and serializing the `typ`.
-    """
-    if type(typ) is not type:
-        return None
-
-    type_schema = schema.SchemaNode(schema.Structure(typ))
-    for field_name, field_type in get_type_hints(typ).items():
-        source_name, __ = denormalize_name(field_name)
-        node_type = decide_node_type(field_type)
-        if node_type is None:
-            raise TypeError(
-                f'Cannot recognise type "{field_type}" of the field '
-                f'"{typ.__name__}.{field_name}" (from {typ.__module__})'
-            )
-        node_type.name = source_name
-        type_schema.add(node_type)
-    return type_schema
-
-
-def type_constructor(typ) -> Tuple[Callable[[Dict], Any], Callable[[NamedTuple], Any]]:
+def type_constructor(
+    typ,
+    overrides: OverridesT = None
+) -> TypeTools:
     """ Generate a constructor and a serializer for the given type
+
+    :param overrides: a mapping of type_field => serialized_field_name.
     """
-    schema_node = _node_for_type(typ)
+    if overrides is None:
+        overrides = {}
+
+    schema_node = _node_for_type(typ, overrides)
     if not schema_node:
         raise TypeError(
             f'Cannot create a type constructor for {typ}'
         )
     return schema_node.deserialize, schema_node.serialize
-
-
-def codegen(typ: Type[Tuple],
-            top: bool = True,
-            indent: int = 4) -> str:
-    """
-    :param typ: A type (NamedTuple definition) to generate a source for.
-    :param top: flag to indicate that a toplevel structure is to be generated.
-        When False, a sub-structure of the toplevel structure is to be generated.
-    :param indent: keep indentation for source lines.
-    :return:
-    """
-    ind = ' ' * indent
-    code = [f'class {typ.__name__}(NamedTuple):']
-    hints = get_type_hints(typ)
-    if not hints:
-        code.extend([f'{ind}...', '', ''])
-
-    for field_name, field_type in hints.items():
-        type_literal = literal_for_type(field_type)
-        if field_type not in BUILTIN_LITERALS_FOR_TYPES:
-            # field_type: Union[NamedTuple, List]
-            folded_lists_count = type_literal.count('List[')
-            if folded_lists_count:
-                # field_type: List[T]
-                # traverse to the folded object
-                for __ in range(folded_lists_count):
-                    field_type = field_type.__args__[0]
-
-                if field_type not in BUILTIN_LITERALS_FOR_TYPES:
-                    sub = codegen(field_type, False)
-                    code.insert(0, f'{sub}\n\n')
-            else:
-                # field_type: NamedTuple
-                # Generate a folded structure definition in the global scope
-                # and then use it for the current field
-                sub = codegen(field_type, False)
-                code.insert(0, f'{sub}\n\n')
-
-        code.append(f'{ind}{field_name}: {type_literal}')
-
-    if top:
-        code.extend(['', '',
-                     f'Mk{typ.__name__}, {typ.__name__}Serializer = type_constructor({typ.__name__})'])
-
-        code = ['from typing import NamedTuple, Dict, Any, List, Optional',
-                'from typeit import type_constructor', '', ''] + code
-    return '\n'.join(code)

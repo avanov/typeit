@@ -1,23 +1,28 @@
 import json
 from enum import Enum
-from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet
+from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet, get_type_hints
 
 import colander
 import pytest
 
-from typeit import parser as p, typeit
+from typeit import codegen as cg
+from typeit import parser as p
 from typeit.sums import SumType, Variant
 
 
 def test_parser_empty_struct():
     struct = {}
-    struct = p.construct_type('main', p.parse(struct))
-    assert p.codegen(struct, False) == "class Main(NamedTuple):\n    ...\n\n"
+    parsed, overrides = cg.parse(struct)
+    struct, overrides_ = cg.construct_type('main', parsed)
+    overrides.update(overrides_)
+    assert overrides == {}
+    python_src, __ = cg.codegen_py(struct, overrides, False)
+    assert python_src == "class Main(NamedTuple):\n    ...\n\n"
 
 
 def test_typeit():
     x = {}
-    typeit(x)
+    cg.typeit(x)
 
 
 def test_type_with_unclarified_list():
@@ -288,11 +293,25 @@ def test_union_primitive_match():
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
-    typ = p.construct_type('main', p.parse(github_pr_dict))
-    p.codegen(typ)
-    constructor, serializer = p.type_constructor(typ)
+    parsed, overrides = cg.parse(github_pr_dict)
+    typ, overrides_ = cg.construct_type('main', parsed)
+    overrides.update(overrides_)
+
+    python_source, __ = cg.codegen_py(typ, overrides)
+    assert 'overrides' in python_source
+    assert "PullRequest.links: '_links'," in python_source
+
+    PullRequestType = get_type_hints(typ)['pull_request']
+
+    assert PullRequestType.links in overrides
+    assert overrides[PullRequestType.links] == '_links'
+
+    constructor, serializer = p.type_constructor(
+        typ,
+        overrides=overrides
+    )
     github_pr = constructor(github_pr_dict)
-    assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
+    assert github_pr.pull_request.links.comments.href.startswith('http')
     assert github_pr_dict == serializer(github_pr)
 
 

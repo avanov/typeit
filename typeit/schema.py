@@ -1,10 +1,10 @@
 import enum as std_enum
-from typing import Type, Tuple, NamedTuple, Sequence, Union, Any
+from typing import Type, NamedTuple, Sequence, Union, Any
 
 import colander as col
 
+from .definitions import OverridesT
 from .sums import SumType
-from .utils import normalize_name, denormalize_name
 
 
 EnumLike = Union[std_enum.Enum, SumType]
@@ -48,26 +48,43 @@ class Enum(col.Str):
 class Structure(col.Mapping):
 
     def __init__(self,
-                 typ: Type[Tuple],
+                 typ: Type[NamedTuple],
+                 overrides: OverridesT,
                  unknown: str = 'ignore') -> None:
         super().__init__(unknown)
         self.typ = typ
+        # source_field_name => struct_field_name
+        self.deserialize_overrides = {
+            overrides[getattr(typ, x)]: x
+            for x in typ._fields
+            if getattr(typ, x) in overrides
+        }
+        # struct_field_name => source_field_name
+        self.serialize_overrides = {
+            v: k for k, v in self.deserialize_overrides.items()
+        }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'Structure(typ={self.typ})'
 
     def deserialize(self, node, cstruct):
         r = super().deserialize(node, cstruct)
         if r is col.null:
             return r
-        return self.typ(**{normalize_name(k)[0]: v for k, v in r.items()})
+        return self.typ(**{
+            self.deserialize_overrides.get(k, k): v
+            for k, v in r.items()
+        })
 
     def serialize(self, node, appstruct: NamedTuple):
         if appstruct is col.null:
             return super().serialize(node, appstruct)
         return super().serialize(
             node,
-            {denormalize_name(k)[0]: v for k, v in appstruct._asdict().items()}
+            {
+                self.serialize_overrides.get(k, k): v
+                for k, v in appstruct._asdict().items()
+            }
         )
 
 
