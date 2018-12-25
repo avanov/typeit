@@ -4,7 +4,7 @@ import yaml
 import sys
 from pathlib import Path
 
-from .. import parser
+from .. import codegen as cg
 
 
 def setup(subparsers):
@@ -25,8 +25,9 @@ def main(args: argparse.Namespace):
         # source is None, read from stdin
         struct = _read_data(sys.stdin)
 
-    struct = parser.typeit(struct)
-    sys.stdout.write(parser.codegen(struct))
+    struct, overrides = cg.typeit(struct)
+    python_src, __ = cg.codegen_py(struct, overrides)
+    sys.stdout.write(python_src)
     sys.stdout.write('\n')
     sys.exit(0)
 

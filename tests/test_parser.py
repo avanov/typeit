@@ -1,29 +1,44 @@
 import json
 from enum import Enum
-from typing import NamedTuple, Dict, Any, Sequence, Union
+from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet, get_type_hints
 
 import colander
 import pytest
 
-from typeit import parser as p, typeit
+from typeit import codegen as cg
+from typeit import parser as p
 from typeit.sums import SumType, Variant
 
 
 def test_parser_empty_struct():
     struct = {}
-    struct = p.construct_type('main', p.parse(struct))
-    assert p.codegen(struct, False) == "class Main(NamedTuple):\n    ...\n\n"
+    parsed, overrides = cg.parse(struct)
+    struct, overrides_ = cg.construct_type('main', parsed)
+    overrides.update(overrides_)
+    assert overrides == {}
+    python_src, __ = cg.codegen_py(struct, overrides, False)
+    assert python_src == "class Main(NamedTuple):\n    ...\n\n"
 
 
 def test_typeit():
     x = {}
-    typeit(x)
+    cg.typeit(x)
+
+
+def test_type_with_unclarified_list():
+    class X(NamedTuple):
+        x: Sequence
+        y: List
+
+    MkX, serializer = p.type_constructor(X)
+    x: X = MkX({'x': [], 'y': []})
+    x: X = MkX({'x': [1], 'y': ['1']})
+    assert x.x[0] == int(x.y[0])
+    x: X = MkX({'x': ['Hello'], 'y': ['World']})
+    assert f'{x.x[0]} {x.y[0]}' == 'Hello World'
 
 
 def test_type_with_sequence():
-    """ Create a type with an explicit dictionary value
-    that can hold any kv pairs
-    """
     class X(NamedTuple):
         x: int
         y: Sequence[Any]
@@ -34,6 +49,82 @@ def test_type_with_sequence():
     x: X = MkX({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
     assert x.z[0] == 'Hello'
+
+
+def test_type_with_tuple_primitives():
+    # There are several forms of tuple declarations
+    # https://docs.python.org/3/library/typing.html#typing.Tuple
+    # We want to support all possible fixed-length tuples,
+    # including empty one
+    class X(NamedTuple):
+        a: Tuple[str, int]  # fixed N-tuple
+        b: Tuple            # the following are equivalent
+        c: tuple
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': ['value', '5'],
+        'b': (),
+        'c': [],
+        'd': ['Hello', 'Random', 'Value', 5, None, True, {}],
+    })
+    assert x.a == ('value', 5)
+    assert x.b == ()
+    assert x.b == x.c
+
+    with pytest.raises(colander.Invalid):
+        # 'abc' is not int
+        x: X = MkX({
+            'a': ['value', 'abc'],
+            'b': [],
+            'c': [],
+        })
+
+    with pytest.raises(colander.Invalid):
+        # .c field is required
+        x: X = MkX({
+            'a': ['value', 5],
+            'b': [],
+        })
+
+    with pytest.raises(colander.Invalid):
+        # .c field is required to be fixed sequence
+        x: X = MkX({
+            'a': ['value', 'abc'],
+            'b': (),
+            'c': None,
+        })
+
+
+def test_type_with_complex_tuples():
+    class Y(NamedTuple):
+        a: Dict
+
+    class X(NamedTuple):
+        a: Tuple[Tuple[Dict, Y], int]
+        b: Optional[Any]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': [
+            [{}, {'a': {'inner': 'value'}}],
+            5
+        ],
+    })
+    assert isinstance(x.a[0][1], Y)
+    assert isinstance(x.a[1], int)
+    assert x.b is None
+
+    x: X = MkX({
+        'a': [
+            [{}, {'a': {'inner': 'value'}}],
+            5
+        ],
+        'b': Y(a={})
+    })
+    assert isinstance(x.b, Y)
 
 
 def test_enum_like_types():
@@ -77,6 +168,36 @@ def test_type_with_empty_enum_variant():
 
     with pytest.raises(colander.Invalid):
         x: X = MkX({'x': 1, 'y': None})
+
+
+def test_type_with_set():
+    class X(NamedTuple):
+        a: FrozenSet
+        b: FrozenSet[Any]
+        c: frozenset
+        d: FrozenSet[int]
+        e: set
+        f: Set
+        g: Set[Any]
+        h: Set[int]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({
+        'a': [],
+        'b': [],
+        'c': [],
+        'd': [1],
+        'e': [],
+        'f': [],
+        'g': [],
+        'h': ['1'],
+    })
+    assert x.a == x.b == x.c == frozenset()
+    assert isinstance(x.d, frozenset)
+    assert isinstance(x.e, set)
+    assert x.h == {1}
+    assert x.d == x.h
 
 
 def test_type_with_dict():
@@ -141,16 +262,56 @@ def test_type_with_primitive_union():
     assert x.x == 'test'
 
 
+def test_union_primitive_match():
+    class X(NamedTuple):
+        # here, str() accepts everything that could be passed to int(),
+        # and int() accepts everything that could be passed to float(),
+        # and we still want to get int values instead of string values,
+        # and float values instead of rounded int values.
+        x: Union[str, int, float, bool]
+
+    MkX, serializer = p.type_constructor(X)
+
+    x: X = MkX({'x': 1})
+    assert isinstance(x.x, int)
+
+    x: X = MkX({'x': 1.0})
+    assert isinstance(x.x, float)
+
+    if not p.PY36:
+        # Python 3.6 has a bug that drops bool types from
+        # unions that include int already, so
+        # x: Union[int, bool] -- will be reduced to just `x: int`
+        # x: Union[str, bool] -- will be left as is
+        x: X = MkX({'x': True})
+        assert isinstance(x.x, bool)
+
+    x: X = MkX({'x': '1'})
+    assert isinstance(x.x, str)
+
 
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
-    typ = p.construct_type('main', p.parse(github_pr_dict))
-    p.codegen(typ)
-    constructor = p._node_for_type(typ)
-    serializer = constructor.serialize
-    github_pr = constructor.deserialize(github_pr_dict)
-    assert github_pr.pull_request.normalized___links.comments.href.startswith('http')
+    parsed, overrides = cg.parse(github_pr_dict)
+    typ, overrides_ = cg.construct_type('main', parsed)
+    overrides.update(overrides_)
+
+    python_source, __ = cg.codegen_py(typ, overrides)
+    assert 'overrides' in python_source
+    assert "PullRequest.links: '_links'," in python_source
+
+    PullRequestType = get_type_hints(typ)['pull_request']
+
+    assert PullRequestType.links in overrides
+    assert overrides[PullRequestType.links] == '_links'
+
+    constructor, serializer = p.type_constructor(
+        typ,
+        overrides=overrides
+    )
+    github_pr = constructor(github_pr_dict)
+    assert github_pr.pull_request.links.comments.href.startswith('http')
     assert github_pr_dict == serializer(github_pr)
 
 

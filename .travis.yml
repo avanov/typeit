@@ -1,4 +1,5 @@
 ---
+dist: xenial
 sudo: false
 language: python
 cache: pip
@@ -9,10 +10,11 @@ install:
   - pip install -e ./
 python:
   - "3.6"
+  - "3.7"
 
 # --source specifies what packages to cover, you probably want to use that option
 script:
     # - mypy --config-file setup.cfg --package typeit
-    - py.test
+    - pytest
 
 after_success: coveralls

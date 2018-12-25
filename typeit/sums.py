@@ -76,7 +76,6 @@ class SumTypeMetaclass(type):
                                 'class X(SumType):\n'
                                 "    X: str = 'x'\n")
 
-            print(variant_constructors[attr_name])
             constructor = t_insp.get_args(
                 variant_constructors[attr_name]
             )[0]
@@ -257,6 +256,8 @@ class SumType(metaclass=SumTypeMetaclass):
         self.constructor = constructor
         if data_args or data_kwargs:
             self.data = constructor(*data_args, **data_kwargs)
+        else:
+            self.data = None
 
     def is_primitive_type(self) -> bool:
         return self.constructor in (int, str, float, bool)
