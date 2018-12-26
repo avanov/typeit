@@ -10,7 +10,7 @@ import collections
 import colander as col
 import typing_inspect as insp
 
-from .definitions import OverridesT
+from .definitions import OverridesT, TypeExtension
 from .sums import SumType
 from . import schema
 
@@ -215,7 +215,18 @@ def _node_for_type(
     return type_schema
 
 
+def _maybe_node_for_overridden(
+    typ: Type[Any],
+    overrides: OverridesT
+):
+    if typ in overrides:
+        override: TypeExtension = overrides[typ]
+        return override.schema
+    return None
+
+
 PARSING_ORDER = [
+    _maybe_node_for_overridden,
     _maybe_node_for_builtin,
     _maybe_node_for_type_var,
     _maybe_node_for_union,

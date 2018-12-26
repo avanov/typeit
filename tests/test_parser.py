@@ -4,6 +4,8 @@ from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set,
 
 import colander
 import pytest
+from money.currency import Currency
+from money.money import Money
 
 from typeit import codegen as cg
 from typeit import parser as p
@@ -313,6 +315,57 @@ def test_parser_github_pull_request_payload():
     github_pr = constructor(github_pr_dict)
     assert github_pr.pull_request.links.comments.href.startswith('http')
     assert github_pr_dict == serializer(github_pr)
+
+
+def test_extending():
+    class X(NamedTuple):
+        x: Money
+
+    class MoneySchema(colander.Tuple):
+        def deserialize(self, node, cstruct):
+            r = super().deserialize(node, cstruct)
+            if r in (colander.null, None):
+                return r
+            try:
+                currency = Currency(r[0])
+            except ValueError:
+                raise colander.Invalid(node, f'Invalid currency token in {r}', cstruct)
+
+            try:
+                rv = Money(r[1], currency)
+            except:
+                raise colander.Invalid(node, f'Invalid amount in {r}', cstruct)
+
+            return rv
+
+        def serialize(self, node, appstruct: Optional[Money]):
+            if appstruct is None or appstruct is colander.null:
+                return appstruct
+
+            r = (appstruct.currency, appstruct.amount)
+            return super().serialize(node, r)
+
+    schema_node = colander.SchemaNode(
+        MoneySchema()
+    )
+    schema_node.children = [
+        colander.SchemaNode(colander.Enum(Currency)),
+        colander.SchemaNode(colander.Str()),
+    ]
+    MkX, serializer = p.type_constructor(X, {
+        Money: p.TypeExtension(
+            schema=schema_node
+        )
+    })
+
+    serialized = {
+        'x': ('GBP', '10')
+    }
+
+    x: X = MkX(serialized)
+    assert isinstance(x.x, Money)
+    assert serializer(x) == serialized
+
 
 
 GITHUB_PR_PAYLOAD_JSON = """
