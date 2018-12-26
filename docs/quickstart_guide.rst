@@ -1,12 +1,18 @@
 Quickstart Guide
 ================
 
+
+.. CAUTION::
+
+    The project is in an early development status, and a few public
+    APIs may change in a backward-incompatible manner.
+
+
 ``typeit`` supports Python 3.6+.
 
 
 Installation
 ------------
-
 
 .. code-block:: bash
 
@@ -16,8 +22,8 @@ Installation
 Using CLI tool
 --------------
 
-``typeit`` provides you with a CLI tool that allows you to generate a prototype
-python of a JSON/YAML data
+Once installed, ``typeit`` provides you with a CLI tool that allows you to generate a prototype
+Python structure of a JSON/YAML data that your app operates with.
 
 For example, try the following snippet in your shell:
 
@@ -52,13 +58,13 @@ You can use this snippet as a starting point to improve further.
 For instance, you can clarify the ``Optional`` type of the ``Main.initial`` attribute,
 and rename the whole structure to better indicate the nature of the data:
 
-.. code-block::
+.. code-block:: python
 
     # ... imports ...
 
     class Person(NamedTuple):
         first_name: str
-        initial: Optional[Any]
+        initial: Optional[str]
         last_name: str
 
 
@@ -84,7 +90,7 @@ Overrides
 
 As you might have noticed in the example above, ``typeit`` generated a snippet with
 a dictionary called ``overrides``, which is passed to the ``type_constructor`` alongside
-our ``Person`` structure:
+our ``Person`` type:
 
 .. code-block:: python
 
@@ -107,8 +113,8 @@ consistently across all possible corner cases, ``typeit`` explicitly
 provides you with a reference point in the code, that you can track and refactor with
 Intelligent Code Completion tools, should that necessity arise.
 
-You can use the same overrides structure to specify rules for attributes of
-any nested objects, for instance:
+You can use the same ``overrides`` object to specify rules for attributes of
+any nested types, for instance:
 
 .. code-block:: python
 
@@ -120,7 +126,7 @@ any nested objects, for instance:
 
     class Person(NamedTuple):
         first_name: str
-        initial: Optional[Any]
+        initial: Optional[str]
         last_name: str
         address: Optional[Address]
 
