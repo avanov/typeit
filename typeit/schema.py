@@ -142,11 +142,24 @@ class UnionNode(col.SchemaType):
         if appstruct in (col.null, None):
             return None
 
-        for variant in self.variants:
+        struct_type = type(appstruct)
+
+        prim_schema_type = BUILTIN_TO_SCHEMA_TYPE.get(struct_type)
+        if prim_schema_type in self.variant_types:
             try:
-                return variant.serialize(appstruct)
+                return prim_schema_type.serialize(node, appstruct)
             except col.Invalid:
+                pass
+
+        remaining_variants = (
+            x for x in self.variants
+            if x.typ is not prim_schema_type
+        )
+
+        for variant in remaining_variants:
+            if variant.typ.typ is not struct_type:
                 continue
+            return variant.serialize(appstruct)
 
 
 class Int(col.Int):

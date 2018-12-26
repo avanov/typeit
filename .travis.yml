@@ -15,6 +15,6 @@ python:
 # --source specifies what packages to cover, you probably want to use that option
 script:
     # - mypy --config-file setup.cfg --package typeit
-    - pytest
+    - pytest --cov=typeit
 
 after_success: coveralls

@@ -57,7 +57,11 @@ def codegen_py(typ: Type[Tuple],
     code = [f'class {typ.__name__}(NamedTuple):']
     hints = get_type_hints(typ)
     if not hints:
-        code.extend([f'{ind}...', '', ''])
+        code.extend([
+            f'{ind}...',
+            LINE_SKIP,
+            LINE_SKIP,
+        ])
 
     for field_name, field_type in hints.items():
         # 1. Generate source code for the field
@@ -101,17 +105,23 @@ def codegen_py(typ: Type[Tuple],
                 overrides_source,
                 LINE_SKIP,
                 LINE_SKIP,
-                f'Mk{typ.__name__}, {typ.__name__}Serializer = '
+                f'mk_{inflection.underscore(typ.__name__)}, '
+                f'dict_{inflection.underscore(typ.__name__)} = '
                 f'type_constructor({typ.__name__}, overrides)'
             ])
         else:
             code.append(
-                f'Mk{typ.__name__}, {typ.__name__}Serializer = '
+                f'mk_{inflection.underscore(typ.__name__)}, '
+                f'dict_{inflection.underscore(typ.__name__)} = '
                 f'type_constructor({typ.__name__})'
             )
 
-        code = ['from typing import NamedTuple, Dict, Any, List, Optional',
-                'from typeit import type_constructor', '', ''] + code
+        code = [
+            'from typing import NamedTuple, Dict, Any, List, Optional',
+            'from typeit import type_constructor',
+            LINE_SKIP,
+            LINE_SKIP,
+        ] + code
     return '\n'.join(code), overrides_source
 
 
@@ -228,6 +238,7 @@ def _clarify_field_type_list(field_name: str,
 
 
 ClarifierCallableT = Callable[[str, Any, str], Tuple[Type, OverridesT]]
+
 
 FIELD_TYPE_CLARIFIERS: Dict[Type, ClarifierCallableT] = {
     # primitive types will not have overrides,

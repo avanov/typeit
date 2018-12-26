@@ -32,11 +32,11 @@ def test_type_with_unclarified_list():
         x: Sequence
         y: List
 
-    MkX, serializer = p.type_constructor(X)
-    x: X = MkX({'x': [], 'y': []})
-    x: X = MkX({'x': [1], 'y': ['1']})
+    mk_main, dict_main = p.type_constructor(X)
+    x = mk_main({'x': [], 'y': []})
+    x = mk_main({'x': [1], 'y': ['1']})
     assert x.x[0] == int(x.y[0])
-    x: X = MkX({'x': ['Hello'], 'y': ['World']})
+    x = mk_main({'x': ['Hello'], 'y': ['World']})
     assert f'{x.x[0]} {x.y[0]}' == 'Hello World'
 
 
@@ -46,9 +46,9 @@ def test_type_with_sequence():
         y: Sequence[Any]
         z: Sequence[str]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_main, serializer = p.type_constructor(X)
 
-    x: X = MkX({'x': 1, 'y': [], 'z': ['Hello']})
+    x = mk_main({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
     assert x.z[0] == 'Hello'
 
@@ -63,9 +63,9 @@ def test_type_with_tuple_primitives():
         b: Tuple            # the following are equivalent
         c: tuple
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
-    x: X = MkX({
+    x = mk_x({
         'a': ['value', '5'],
         'b': (),
         'c': [],
@@ -77,7 +77,7 @@ def test_type_with_tuple_primitives():
 
     with pytest.raises(colander.Invalid):
         # 'abc' is not int
-        x: X = MkX({
+        x = mk_x({
             'a': ['value', 'abc'],
             'b': [],
             'c': [],
@@ -85,14 +85,14 @@ def test_type_with_tuple_primitives():
 
     with pytest.raises(colander.Invalid):
         # .c field is required
-        x: X = MkX({
+        x = mk_x({
             'a': ['value', 5],
             'b': [],
         })
 
     with pytest.raises(colander.Invalid):
         # .c field is required to be fixed sequence
-        x: X = MkX({
+        x = mk_x({
             'a': ['value', 'abc'],
             'b': (),
             'c': None,
@@ -107,9 +107,9 @@ def test_type_with_complex_tuples():
         a: Tuple[Tuple[Dict, Y], int]
         b: Optional[Any]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
-    x: X = MkX({
+    x = mk_x({
         'a': [
             [{}, {'a': {'inner': 'value'}}],
             5
@@ -119,7 +119,7 @@ def test_type_with_complex_tuples():
     assert isinstance(x.a[1], int)
     assert x.b is None
 
-    x: X = MkX({
+    x = mk_x({
         'a': [
             [{}, {'a': {'inner': 'value'}}],
             5
@@ -127,6 +127,14 @@ def test_type_with_complex_tuples():
         'b': Y(a={})
     })
     assert isinstance(x.b, Y)
+
+
+def test_unsupported_variable_length_tuples():
+    class X(NamedTuple):
+        a: Tuple[int, ...]
+
+    with pytest.raises(TypeError):
+        mk_x, dict_x = p.type_constructor(X)
 
 
 def test_enum_like_types():
@@ -142,15 +150,17 @@ def test_enum_like_types():
         e: Enums
         s: Sums
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor(X)
 
-    x: X = MkX({'e': 'a', 's': 'b'})
+    data = {'e': 'a', 's': 'b'}
+    x = mk_x(data)
     assert isinstance(x.e, Enums)
     assert isinstance(x.s, Sums)
     assert isinstance(x.s('value'), Sums)
+    assert data == dict_x(x)
 
     with pytest.raises(colander.Invalid):
-        x: X = MkX({'e': 'a', 's': None})
+        x = mk_x({'e': 'a', 's': None})
 
 
 def test_type_with_empty_enum_variant():
@@ -162,14 +172,14 @@ def test_type_with_empty_enum_variant():
         x: int
         y: Types
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
     for variant in Types:
-        x: X = MkX({'x': 1, 'y': variant.value})
+        x = mk_x({'x': 1, 'y': variant.value})
         assert x.y is variant
 
     with pytest.raises(colander.Invalid):
-        x: X = MkX({'x': 1, 'y': None})
+        x = mk_x({'x': 1, 'y': None})
 
 
 def test_type_with_set():
@@ -183,9 +193,9 @@ def test_type_with_set():
         g: Set[Any]
         h: Set[int]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
-    x: X = MkX({
+    x = mk_x({
         'a': [],
         'b': [],
         'c': [],
@@ -210,15 +220,15 @@ def test_type_with_dict():
         x: int
         y: Dict[str, Any]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
     with pytest.raises(colander.Invalid):
-        MkX({})
+        mk_x({})
 
     with pytest.raises(colander.Invalid):
-        MkX({'x': 1})
+        mk_x({'x': 1})
 
-    x: X = MkX({'x': 1, 'y': {'x': 1}})
+    x = mk_x({'x': 1, 'y': {'x': 1}})
     assert x.x == x.y['x']
 
 
@@ -234,34 +244,40 @@ def test_type_with_unions():
         x: Union[None, VariantA, VariantB]
         y: Union[str, VariantA]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor(X)
 
-    x: X = MkX({'x': {'variant_a': 1}, 'y': 'y'})
+    x = mk_x({'x': {'variant_a': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantA)
 
-    x: X = MkX({'x': {'variant_b': 1, 'variant_b_attr': 1}, 'y': 'y'})
+    data = {'x': {'variant_b': 1, 'variant_b_attr': 1}, 'y': 'y'}
+    x = mk_x(data)
     assert isinstance(x.x, VariantB)
 
-    assert MkX({'x': None, 'y': 'y'}) == MkX({'y': 'y'})
+    assert data == dict_x(x)
+
+    assert mk_x({'x': None, 'y': 'y'}) == mk_x({'y': 'y'})
     with pytest.raises(colander.Invalid):
-        # this is not the same as MkX({}),
+        # this is not the same as mk_x({}),
         # the empty structure is passed as attribute x,
         # which should match with only an empty named tuple definition,
         # which is not the same as None.
-        MkX({'x': {}})
+        mk_x({'x': {}})
 
 
 def test_type_with_primitive_union():
     class X(NamedTuple):
         x: Union[None, str]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor(X)
 
-    x: X = MkX({'x': None})
+    x = mk_x({'x': None})
     assert x.x is None
 
-    x: X = MkX({'x': 'test'})
+    data = {'x': 'test'}
+    x = mk_x(data)
     assert x.x == 'test'
+
+    assert data == dict_x(x)
 
 
 def test_union_primitive_match():
@@ -272,12 +288,12 @@ def test_union_primitive_match():
         # and float values instead of rounded int values.
         x: Union[str, int, float, bool]
 
-    MkX, serializer = p.type_constructor(X)
+    mk_x, serializer = p.type_constructor(X)
 
-    x: X = MkX({'x': 1})
+    x = mk_x({'x': 1})
     assert isinstance(x.x, int)
 
-    x: X = MkX({'x': 1.0})
+    x = mk_x({'x': 1.0})
     assert isinstance(x.x, float)
 
     if not p.PY36:
@@ -285,10 +301,10 @@ def test_union_primitive_match():
         # unions that include int already, so
         # x: Union[int, bool] -- will be reduced to just `x: int`
         # x: Union[str, bool] -- will be left as is
-        x: X = MkX({'x': True})
+        x = mk_x({'x': True})
         assert isinstance(x.x, bool)
 
-    x: X = MkX({'x': '1'})
+    x = mk_x({'x': '1'})
     assert isinstance(x.x, str)
 
 
@@ -352,7 +368,7 @@ def test_extending():
         colander.SchemaNode(colander.Enum(Currency)),
         colander.SchemaNode(colander.Str()),
     ]
-    MkX, serializer = p.type_constructor(X, {
+    mk_x, dict_x = p.type_constructor(X, {
         Money: p.TypeExtension(
             schema=schema_node
         )
@@ -362,9 +378,9 @@ def test_extending():
         'x': ('GBP', '10')
     }
 
-    x: X = MkX(serialized)
+    x = mk_x(serialized)
     assert isinstance(x.x, Money)
-    assert serializer(x) == serialized
+    assert dict_x(x) == serialized
 
 
 

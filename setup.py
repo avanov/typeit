@@ -22,7 +22,7 @@ with (here / 'requirements.txt').open() as f:
 
 setup(name='typeit',
       version='0.7.0',
-      description='Type it!',
+      description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
           'Development Status :: 1 - Planning',
@@ -36,7 +36,7 @@ setup(name='typeit',
       author='Maxim Avanov',
       author_email='maxim.avanov@gmail.com',
       url='https://github.com/avanov/typeit',
-      keywords='utils typing json yaml',
+      keywords='utils typing json yaml serialization',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
