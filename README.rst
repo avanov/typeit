@@ -21,6 +21,17 @@
 
 **Development status: Early Alpha**
 
+Typeit
+------
+
+`typeit` brings typed data into your project.
+
+
+Documentation
+-------------
+
+Documentation is hosted on ReadTheDocs: https://typeit.readthedocs.io/en/latest/
+
 
 Test framework
 --------------
@@ -29,4 +40,4 @@ Run existing test suite with
 
 .. code::
 
-   $ py.test
+   $ pytest

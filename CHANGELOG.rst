@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.7.1
+=====
+
+* Fixed bug in Union serialization.
+
 
 0.7.0
 =====

@@ -2,7 +2,7 @@ import enum as std_enum
 import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
-    Dict, NamedTuple, Callable,
+    Dict, Callable,
     Sequence, get_type_hints,
     MutableSet, TypeVar, FrozenSet)
 import collections
@@ -10,7 +10,7 @@ import collections
 import colander as col
 import typing_inspect as insp
 
-from .definitions import OverridesT
+from .definitions import OverridesT, TypeExtension
 from .sums import SumType
 from . import schema
 
@@ -18,10 +18,8 @@ from . import schema
 PY37 = sys.version_info[:2] == (3, 7)
 PY36 = sys.version_info[:2] == (3, 6)
 
-TypeTools = Tuple[
-    Callable[[Dict], Any],
-    Callable[[NamedTuple], Any]
-]
+
+T = TypeVar('T')
 
 
 def _maybe_node_for_builtin(
@@ -215,7 +213,18 @@ def _node_for_type(
     return type_schema
 
 
+def _maybe_node_for_overridden(
+    typ: Type[Any],
+    overrides: OverridesT
+):
+    if typ in overrides:
+        override: TypeExtension = overrides[typ]
+        return override.schema
+    return None
+
+
 PARSING_ORDER = [
+    _maybe_node_for_overridden,
     _maybe_node_for_builtin,
     _maybe_node_for_type_var,
     _maybe_node_for_union,
@@ -256,8 +265,14 @@ def decide_node_type(
     )
 
 
+TypeTools = Tuple[
+    Callable[[Dict[str, Any]], T],
+    Callable[[T], Union[List, Dict]]
+]
+
+
 def type_constructor(
-    typ,
+    typ: Type[T],
     overrides: OverridesT = None
 ) -> TypeTools:
     """ Generate a constructor and a serializer for the given type
