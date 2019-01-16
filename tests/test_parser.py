@@ -163,6 +163,27 @@ def test_enum_like_types():
         x = mk_x({'e': 'a', 's': None})
 
 
+def test_enum_unions_serialization():
+    class E0(Enum):
+        A = 'a'
+        B = 'b'
+        C = 'C'
+
+    class E1(Enum):
+        X = 'x'
+        Y = 'y'
+        Z = 'z'
+
+
+    class MyType(NamedTuple):
+        val: Union[E0, E1]
+
+
+    __, serializer = p.type_constructor(MyType)
+
+    assert serializer(MyType(val=E1.Z)) == {'val': 'z'}
+
+
 def test_type_with_empty_enum_variant():
     class Types(Enum):
         A = ''

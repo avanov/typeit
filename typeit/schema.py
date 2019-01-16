@@ -22,9 +22,9 @@ class AcceptEverything(col.SchemaType):
 
 
 class Enum(col.Str):
-    def __init__(self, enum: Type[EnumLike], *args, **kwargs) -> None:
+    def __init__(self, typ: Type[EnumLike], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.enum = enum
+        self.typ = typ
 
     def serialize(self, node, appstruct):
         """ Default colander integer serializer returns a string representation
@@ -40,9 +40,9 @@ class Enum(col.Str):
         if r is col.null:
             return r
         try:
-            return self.enum(r)
+            return self.typ(r)
         except ValueError:
-            raise col.Invalid(node, f'Invalid variant of {self.enum.__name__}', cstruct)
+            raise col.Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
 class Structure(col.Mapping):
