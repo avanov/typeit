@@ -1,6 +1,6 @@
 -r ./requirements.txt
-pytest==4.0.2
-coverage==4.5.2
-pytest-cov==2.6.0
-mypy==0.650
+pytest==4.3.1
+coverage==4.5.3
+pytest-cov==2.6.1
+mypy==0.670
 py-money==0.3.0
