@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.8.0
+============
+
+* Added a utility function for iterating over invalid data samples.
+
 0.7.3
 ============
 
