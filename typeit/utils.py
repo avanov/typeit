@@ -1,5 +1,16 @@
+from typing import Iterator, NamedTuple, Any, Mapping
 import re
 import keyword
+import colander
+
+
+NORMALIZATION_PREFIX = 'overridden__'
+
+
+class InvalidData(NamedTuple):
+    path: str
+    reason: str
+    sample: Mapping[str, Any]
 
 
 def normalize_name(name: str,
@@ -13,4 +24,30 @@ def normalize_name(name: str,
     return being_normalized
 
 
-NORMALIZATION_PREFIX = 'overridden__'
+def iter_invalid_data(error: colander.Invalid,
+                      data: Mapping[str, Any]) -> Iterator[InvalidData]:
+    """ A helper function to iterate over data samples that
+    caused an exception at object construction. Use it like this:
+
+    >>> try:
+    >>>     obj = mk_obj(data)
+    >>> except colander.Invalid as e:
+    >>>     # iterate over a sequence of InvalidData
+    >>>     for e in iter_invalid_data(e, data):
+    >>>         ...
+
+    """
+    for e_path, msg in error.asdict().items():
+        e_parts = []
+        for x in e_path.split('.'):
+            # x is either a list index or a dict key
+            try:
+                x = int(x)
+            except ValueError:
+                pass
+            e_parts.append(x)
+        # traverse data for a value that caused an error
+        trav = data
+        for i in e_parts:
+            trav = trav[i]
+        yield InvalidData(path=e_path, reason=msg, sample=trav)
