@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.8.1
+============
+
+* `utils.iter_invalid_data()` does not throws KeyError when sample value is missing.
+
 0.8.0
 ============
 
