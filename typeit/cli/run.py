@@ -1,6 +1,5 @@
 import argparse
 import json
-import yaml
 import sys
 from pathlib import Path
 
@@ -37,5 +36,14 @@ def _read_data(fd):
     try:
         struct = json.loads(buf)
     except ValueError:
-        struct = yaml.load(buf)
+        try:
+            import yaml
+        except ImportError:
+            raise RuntimeError(
+                "Could not parse data as JSON, and could not locate PyYAML library "
+                "to try to parse the data as YAML. You can either install PyYAML as a separate "
+                "dependency, or use the `third_party` extra tag with typeit:\n\n"
+                "pip install typeit[third_party]"
+            )
+        struct = yaml.load(buf, Loader=yaml.FullLoader)
     return struct
