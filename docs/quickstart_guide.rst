@@ -8,7 +8,7 @@ Quickstart Guide
     APIs may change in a backward-incompatible manner.
 
 
-``typeit`` supports Python 3.6+.
+``typeit`` supports Python 3.7+.
 
 
 Installation

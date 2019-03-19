@@ -5,7 +5,8 @@ language: python
 cache: pip
 
 install:
-  - pip install -r ./requirements_test.txt
+  - pip install -r ./requirements/test.txt
+  - pip install -r ./requirements/extras/third_party.txt
   - pip install coveralls
   - pip install -e ./
 python:

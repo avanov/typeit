@@ -1,3 +1,6 @@
 # https://docs.python.org/3/distutils/sourcedist.html#manifest
-include README.rst CHANGES LICENSE requirements.txt
+include README.rst CHANGES LICENSE
+recursive-include requirements *.txt
 recursive-include typeit
+exclude requirements/test.txt
+prune tests
