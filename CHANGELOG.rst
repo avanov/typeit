@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.9.0
+============
+
+* Dependencies were split into minimal / extras.
+
 0.8.1
 ============
 
