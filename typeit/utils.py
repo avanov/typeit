@@ -1,4 +1,4 @@
-from typing import Iterator, NamedTuple, Any, Mapping
+from typing import Iterator, NamedTuple, Any, Mapping, Union, Sequence, Optional
 import re
 import keyword
 import colander
@@ -10,7 +10,7 @@ NORMALIZATION_PREFIX = 'overridden__'
 class InvalidData(NamedTuple):
     path: str
     reason: str
-    sample: Mapping[str, Any]
+    sample: Optional[Any]
 
 
 def normalize_name(name: str,
@@ -47,7 +47,12 @@ def iter_invalid_data(error: colander.Invalid,
                 pass
             e_parts.append(x)
         # traverse data for a value that caused an error
-        trav = data
+        traversed_value = data
         for i in e_parts:
-            trav = trav[i]
-        yield InvalidData(path=e_path, reason=msg, sample=trav)
+            try:
+                traversed_value = traversed_value[i]
+            except KeyError:
+                # handles the case when key is missing from payload
+                traversed_value = None
+                break
+        yield InvalidData(path=e_path, reason=msg, sample=traversed_value)

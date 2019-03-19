@@ -25,6 +25,7 @@ def test_iter_invalid_data():
 
     class X(NamedTuple):
         items: Sequence[Item]
+        item: Item
 
     mk_x, dict_x = type_constructor(X)
 
