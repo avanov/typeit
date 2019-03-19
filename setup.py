@@ -21,7 +21,7 @@ with (here / 'requirements.txt').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.8.0',
+      version='0.8.1',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
