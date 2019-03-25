@@ -197,6 +197,9 @@ def _node_for_type(
     if type(typ) is not type:
         return None
 
+    if not hasattr(typ, '_fields'):
+        return None
+
     type_schema = schema.SchemaNode(schema.Structure(typ, overrides))
     for field_name, field_type in get_type_hints(typ).items():
         # apply field override, if available

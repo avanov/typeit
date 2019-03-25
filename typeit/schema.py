@@ -66,7 +66,8 @@ class Path(col.Str):
 
 
 class Structure(col.Mapping):
-
+    """ SchemaNode for NamedTuples and derived types.
+    """
     def __init__(self,
                  typ: Type[iface.IType],
                  overrides: OverridesT,

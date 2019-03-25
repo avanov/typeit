@@ -389,6 +389,11 @@ def test_extending():
         colander.SchemaNode(colander.Enum(Currency)),
         colander.SchemaNode(colander.Str()),
     ]
+
+    with pytest.raises(TypeError):
+        # type ``Money`` is not defined in overrides
+        mk_x, dict_x = p.type_constructor(X)
+
     mk_x, dict_x = p.type_constructor(X, {
         Money: p.TypeExtension(
             schema=schema_node
