@@ -1,4 +1,5 @@
 import enum as std_enum
+import pathlib
 import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
@@ -49,18 +50,20 @@ def _maybe_node_for_type_var(
     return None
 
 
-def _maybe_node_for_enum(
-    typ: Type,
+def _maybe_node_for_subclass_based(
+    typ: Type[Any],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
-    try:
-        is_enum = issubclass(typ, (std_enum.Enum, SumType))
-    except TypeError:
-        # TypeError: issubclass() arg 1 must be a class
-        is_enum = False
-
-    if is_enum:
-        return schema.SchemaNode(schema.Enum(typ, allow_empty=True))
+    for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
+        try:
+            is_target = issubclass(typ, subclasses)
+        except TypeError:
+            # TypeError: issubclass() arg 1 must be a class
+            # ``typ`` is not a class, skip the rest
+            return None
+        else:
+            if is_target:
+                return schema.SchemaNode(schema_cls(typ, allow_empty=True))
     return None
 
 
@@ -68,7 +71,7 @@ def _maybe_node_for_union(
     typ: Type,
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
-    """ handles cases where typ is a Union, including the special
+    """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
     """
@@ -232,7 +235,7 @@ PARSING_ORDER = [
     _maybe_node_for_tuple,
     _maybe_node_for_dict,
     _maybe_node_for_set,
-    _maybe_node_for_enum,
+    _maybe_node_for_subclass_based,
     # at this point it could be a user-defined type,
     # so the parser may do another recursive iteration
     # through the same plan

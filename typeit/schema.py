@@ -1,5 +1,6 @@
 import enum as std_enum
-from typing import Type, NamedTuple, Sequence, Union, Any
+import pathlib
+from typing import Type, NamedTuple, Sequence, Union, Any, Mapping
 
 import colander as col
 
@@ -27,9 +28,6 @@ class Enum(col.Str):
         self.typ = typ
 
     def serialize(self, node, appstruct):
-        """ Default colander integer serializer returns a string representation
-        of a number, whereas we want identical representation of the original data.
-        """
         if appstruct is col.null:
             return appstruct
         r = super().serialize(node, appstruct.value)
@@ -42,6 +40,27 @@ class Enum(col.Str):
         try:
             return self.typ(r)
         except ValueError:
+            raise col.Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
+
+
+class Path(col.Str):
+    def __init__(self, typ: Type[pathlib.PurePath], *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.typ = typ
+
+    def serialize(self, node, appstruct: Union[col._null, pathlib.PurePath]):
+        if appstruct is col.null:
+            return appstruct
+        r = super().serialize(node, str(appstruct))
+        return r
+
+    def deserialize(self, node, cstruct) -> pathlib.PurePath:
+        r = super().deserialize(node, cstruct)
+        if r is col.null:
+            return r
+        try:
+            return self.typ(r)
+        except TypeError:
             raise col.Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
@@ -220,10 +239,19 @@ class SchemaNode(col.SchemaNode):
         return f'SchemaNode({self.typ})'
 
 
-BUILTIN_TO_SCHEMA_TYPE = {
+# Maps a type that appears in type signatures
+# to a colander SchemaNode responsible for serialization/deserialization
+BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, col.SchemaNode] = {
     Any: AcceptEverything(),
     str: Str(allow_empty=True),
     int: Int(),
     float: col.Float(),
     bool: Bool(),
+}
+
+
+_SUBCLASS_BASED_TO_SCHEMA_TYPE = {
+    (std_enum.Enum, SumType): Enum,
+    # Pathlib's PurePath and its derivatives
+    (pathlib.PurePath,): Path,
 }
