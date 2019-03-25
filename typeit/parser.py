@@ -3,7 +3,7 @@ from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
     Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet)
+    MutableSet, TypeVar, FrozenSet, Mapping)
 import collections
 
 import colander as col
@@ -67,45 +67,55 @@ def _maybe_node_for_subclass_based(
 
 def _maybe_node_for_union(
     typ: Type[iface.IType],
-    overrides: OverridesT
+    overrides: OverridesT,
+    supported_type=frozenset({}),
+    supported_origin=frozenset({
+        Union,
+    })
 ) -> Optional[schema.SchemaNode]:
     """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
     """
-    if insp.get_origin(typ) is not Union:
-        return None
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
+        NoneClass = None.__class__
+        variants = insp.get_args(typ, evaluate=True)
+        if variants in ((NoneClass, Any), (Any, NoneClass)):
+            # Case for Optional[Any] and Union[None, Any] notations
+            return schema.SchemaNode(schema.AcceptEverything(), missing=None)
 
-    NoneClass = None.__class__
-    variants = insp.get_args(typ, evaluate=True)
-    if variants in ((NoneClass, Any), (Any, NoneClass)):
-        # Case for Optional[Any] and Union[None, Any] notations
-        return schema.SchemaNode(schema.AcceptEverything(), missing=None)
-
-    allow_empty = NoneClass in variants
-    node_variants = []
-    for variant in variants:
-        if variant is NoneClass:
-            continue
-        node = decide_node_type(variant, overrides)
+        allow_empty = NoneClass in variants
+        node_variants = []
+        for variant in variants:
+            if variant is NoneClass:
+                continue
+            node = decide_node_type(variant, overrides)
+            if allow_empty:
+                node.missing = None
+            node_variants.append(node)
+        union_node = schema.SchemaNode(schema.UnionNode(variants=node_variants))
         if allow_empty:
-            node.missing = None
-        node_variants.append(node)
-    union_node = schema.SchemaNode(schema.UnionNode(variants=node_variants))
-    if allow_empty:
-        union_node.missing = None
-    return union_node
+            union_node.missing = None
+        return union_node
+
+    return None
 
 
 def _maybe_node_for_list(
     typ: Type[iface.IType],
-    overrides: OverridesT
+    overrides: OverridesT,
+    supported_type=frozenset({
+        collections.abc.Sequence,
+    }),
+    supported_origin=frozenset({
+        List,
+        Sequence,
+        collections.abc.Sequence,
+        list,
+    })
 ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
-    if insp.get_origin(typ) in (List,
-                                  Sequence,
-                                  collections.abc.Sequence,
-                                  list):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         try:
             inner = insp.get_args(typ, evaluate=True)[0]
         except IndexError:
@@ -120,17 +130,25 @@ def _maybe_node_for_list(
 
 def _maybe_node_for_set(
     typ: Type[iface.IType],
-    overrides: OverridesT
+    overrides: OverridesT,
+    supported_type=frozenset({
+        set,
+        frozenset,
+        collections.abc.Set,
+        collections.abc.MutableSet,
+    }),
+    supported_origin=frozenset({
+        Set,
+        MutableSet,
+        FrozenSet,
+        collections.abc.Set,
+        collections.abc.MutableSet,
+        set,
+        frozenset,
+    })
 ) -> Optional[col.SequenceSchema]:
     origin = insp.get_origin(typ)
-    is_set = typ in (set, frozenset)
-    if is_set or origin in (Set,
-                            MutableSet,
-                            FrozenSet,
-                            collections.abc.Set,
-                            collections.abc.MutableSet,
-                            set,
-                            frozenset):
+    if typ in supported_type or origin in supported_origin:
         try:
             inner = insp.get_args(typ, evaluate=True)[0]
         except IndexError:
@@ -150,9 +168,15 @@ def _maybe_node_for_set(
 
 def _maybe_node_for_tuple(
     typ: Type[iface.IType],
-    overrides: OverridesT
+    overrides: OverridesT,
+    supported_type=frozenset({
+        tuple,
+    }),
+    supported_origin=frozenset({
+        tuple, Tuple,
+    })
 ) -> Optional[col.TupleSchema]:
-    if typ is tuple or insp.get_origin(typ) in (tuple, Tuple):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         inner_types = insp.get_args(typ, evaluate=True)
         if Ellipsis in inner_types:
             raise TypeError(
@@ -174,7 +198,16 @@ def _maybe_node_for_tuple(
 
 def _maybe_node_for_dict(
     typ: Type[iface.IType],
-    overrides: OverridesT
+    overrides: OverridesT,
+    supported_type=frozenset({
+        collections.abc.Mapping,
+    }),
+    supported_origin=frozenset({
+        Dict,
+        dict,
+        collections.abc.Mapping,
+        Mapping,  # py3.6
+    })
 ) -> Optional[schema.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
@@ -182,7 +215,7 @@ def _maybe_node_for_dict(
     (for instance, python logging settings that have an infinite
     set of possible attributes).
     """
-    if insp.get_origin(typ) in (Dict, dict):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         return schema.SchemaNode(col.Mapping(unknown='preserve'))
     return None
 
