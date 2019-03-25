@@ -2,6 +2,7 @@ from typing import Iterator, NamedTuple, Any, Mapping, Union, Sequence, Optional
 import re
 import keyword
 import colander
+from . import interface as iface
 
 
 NORMALIZATION_PREFIX = 'overridden__'
@@ -47,7 +48,7 @@ def iter_invalid_data(error: colander.Invalid,
                 pass
             e_parts.append(x)
         # traverse data for a value that caused an error
-        traversed_value = data
+        traversed_value: Union[None, iface.ITraversable] = data
         for i in e_parts:
             try:
                 traversed_value = traversed_value[i]

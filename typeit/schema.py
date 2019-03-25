@@ -1,11 +1,12 @@
 import enum as std_enum
 import pathlib
-from typing import Type, NamedTuple, Sequence, Union, Any, Mapping
+from typing import Type, NamedTuple, Sequence, Union, Any, Mapping, Tuple
 
 import colander as col
 
 from .definitions import OverridesT
 from .sums import SumType
+from . import interface as iface
 
 
 EnumLike = Union[std_enum.Enum, SumType]
@@ -67,7 +68,7 @@ class Path(col.Str):
 class Structure(col.Mapping):
 
     def __init__(self,
-                 typ: Type[NamedTuple],
+                 typ: Type[iface.IType],
                  overrides: OverridesT,
                  unknown: str = 'ignore') -> None:
         super().__init__(unknown)
@@ -250,7 +251,9 @@ BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, col.SchemaNode] = {
 }
 
 
-_SUBCLASS_BASED_TO_SCHEMA_TYPE = {
+_SUBCLASS_BASED_TO_SCHEMA_TYPE: Mapping[
+    Tuple[Type, ...], Type[col.SchemaNode],
+] = {
     (std_enum.Enum, SumType): Enum,
     # Pathlib's PurePath and its derivatives
     (pathlib.PurePath,): Path,

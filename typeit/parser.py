@@ -1,5 +1,3 @@
-import enum as std_enum
-import pathlib
 import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
@@ -12,8 +10,8 @@ import colander as col
 import typing_inspect as insp
 
 from .definitions import OverridesT, TypeExtension
-from .sums import SumType
 from . import schema
+from . import interface as iface
 
 
 PY37 = sys.version_info[:2] == (3, 7)
@@ -24,7 +22,7 @@ T = TypeVar('T')
 
 
 def _maybe_node_for_builtin(
-    typ: Type,
+    typ: Union[Type[iface.IType], Any],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ Check if type could be associated with one of the
@@ -51,7 +49,7 @@ def _maybe_node_for_type_var(
 
 
 def _maybe_node_for_subclass_based(
-    typ: Type[Any],
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
@@ -68,7 +66,7 @@ def _maybe_node_for_subclass_based(
 
 
 def _maybe_node_for_union(
-    typ: Type,
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ Handles cases where typ is a Union, including the special
@@ -100,7 +98,7 @@ def _maybe_node_for_union(
 
 
 def _maybe_node_for_list(
-    typ: Type,
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
@@ -121,7 +119,7 @@ def _maybe_node_for_list(
 
 
 def _maybe_node_for_set(
-    typ: Type,
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[col.SequenceSchema]:
     origin = insp.get_origin(typ)
@@ -151,7 +149,7 @@ def _maybe_node_for_set(
 
 
 def _maybe_node_for_tuple(
-    typ: Type,
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[col.TupleSchema]:
     if typ is tuple or insp.get_origin(typ) in (tuple, Tuple):
@@ -175,7 +173,7 @@ def _maybe_node_for_tuple(
 
 
 def _maybe_node_for_dict(
-    typ: Type,
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ This is mainly for cases when a user has manually
@@ -190,7 +188,7 @@ def _maybe_node_for_dict(
 
 
 def _node_for_type(
-    typ: Type[Tuple],
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ Generates a Colander schema for the given `typ` that is capable
@@ -244,7 +242,7 @@ PARSING_ORDER = [
 
 
 def decide_node_type(
-    typ: Type[Union[Tuple, Any]],
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> schema.SchemaNode:
     # typ is either of:

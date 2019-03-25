@@ -1,9 +1,9 @@
-from typing import Optional, Dict, NamedTuple, Union, Any
+from typing import Dict, NamedTuple, Union, Any
 
 import colander as  col
 
 
-OverridesT = Optional[Dict]
+OverridesT = Dict
 
 
 class FieldDefinition(NamedTuple):
