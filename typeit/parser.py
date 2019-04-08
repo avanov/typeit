@@ -1,18 +1,18 @@
-import enum as std_enum
 import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
     Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet)
+    MutableSet, TypeVar, FrozenSet, Mapping)
 import collections
 
 import colander as col
 import typing_inspect as insp
 
 from .definitions import OverridesT, TypeExtension
-from .sums import SumType
+from . import flags
 from . import schema
+from . import interface as iface
 
 
 PY37 = sys.version_info[:2] == (3, 7)
@@ -23,16 +23,23 @@ T = TypeVar('T')
 
 
 def _maybe_node_for_builtin(
-    typ: Type,
+    typ: Union[Type[iface.IType], Any],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
+    if flags.NON_STRICT_PRIMITIVES in overrides:
+        registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+    else:
+        registry = schema.BUILTIN_TO_SCHEMA_TYPE
+
     try:
-        return schema.SchemaNode(schema.BUILTIN_TO_SCHEMA_TYPE[typ])
+        typ = registry[typ]
     except KeyError:
         return None
+
+    return schema.SchemaNode(typ)
 
 
 def _maybe_node_for_type_var(
@@ -49,62 +56,86 @@ def _maybe_node_for_type_var(
     return None
 
 
-def _maybe_node_for_enum(
-    typ: Type,
+def _maybe_node_for_subclass_based(
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
-    try:
-        is_enum = issubclass(typ, (std_enum.Enum, SumType))
-    except TypeError:
-        # TypeError: issubclass() arg 1 must be a class
-        is_enum = False
-
-    if is_enum:
-        return schema.SchemaNode(schema.Enum(typ, allow_empty=True))
+    for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_NODE.items():
+        try:
+            is_target = issubclass(typ, subclasses)
+        except TypeError:
+            # TypeError: issubclass() arg 1 must be a class
+            # ``typ`` is not a class, skip the rest
+            return None
+        else:
+            if is_target:
+                return schema.SchemaNode(schema_cls(typ, allow_empty=True))
     return None
 
 
 def _maybe_node_for_union(
-    typ: Type,
-    overrides: OverridesT
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({}),
+    supported_origin=frozenset({
+        Union,
+    })
 ) -> Optional[schema.SchemaNode]:
-    """ handles cases where typ is a Union, including the special
+    """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
     """
-    if insp.get_origin(typ) is not Union:
-        return None
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
+        NoneClass = None.__class__
+        variants = insp.get_args(typ, evaluate=True)
+        if variants in ((NoneClass, Any), (Any, NoneClass)):
+            # Case for Optional[Any] and Union[None, Any] notations
+            return schema.SchemaNode(
+                schema.primitives.AcceptEverything(),
+                missing=None
+            )
 
-    NoneClass = None.__class__
-    variants = insp.get_args(typ, evaluate=True)
-    if variants in ((NoneClass, Any), (Any, NoneClass)):
-        # Case for Optional[Any] and Union[None, Any] notations
-        return schema.SchemaNode(schema.AcceptEverything(), missing=None)
+        allow_empty = NoneClass in variants
+        node_variants = []
+        for variant in variants:
+            if variant is NoneClass:
+                continue
+            node = decide_node_type(variant, overrides)
+            if allow_empty:
+                node.missing = None
+            node_variants.append(node)
 
-    allow_empty = NoneClass in variants
-    node_variants = []
-    for variant in variants:
-        if variant is NoneClass:
-            continue
-        node = decide_node_type(variant, overrides)
+        if flags.NON_STRICT_PRIMITIVES in overrides:
+            primitives_registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+        else:
+            primitives_registry = schema.BUILTIN_TO_SCHEMA_TYPE
+
+        union_node = schema.SchemaNode(
+            schema.UnionNode(variants=node_variants,
+                             primitives_registry=primitives_registry)
+        )
         if allow_empty:
-            node.missing = None
-        node_variants.append(node)
-    union_node = schema.SchemaNode(schema.UnionNode(variants=node_variants))
-    if allow_empty:
-        union_node.missing = None
-    return union_node
+            union_node.missing = None
+        return union_node
+
+    return None
 
 
 def _maybe_node_for_list(
-    typ: Type,
-    overrides: OverridesT
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({
+        collections.abc.Sequence,
+    }),
+    supported_origin=frozenset({
+        List,
+        Sequence,
+        collections.abc.Sequence,
+        list,
+    })
 ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
-    if insp.get_origin(typ) in (List,
-                                  Sequence,
-                                  collections.abc.Sequence,
-                                  list):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         try:
             inner = insp.get_args(typ, evaluate=True)[0]
         except IndexError:
@@ -118,18 +149,26 @@ def _maybe_node_for_list(
 
 
 def _maybe_node_for_set(
-    typ: Type,
-    overrides: OverridesT
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({
+        set,
+        frozenset,
+        collections.abc.Set,
+        collections.abc.MutableSet,
+    }),
+    supported_origin=frozenset({
+        Set,
+        MutableSet,
+        FrozenSet,
+        collections.abc.Set,
+        collections.abc.MutableSet,
+        set,
+        frozenset,
+    })
 ) -> Optional[col.SequenceSchema]:
     origin = insp.get_origin(typ)
-    is_set = typ in (set, frozenset)
-    if is_set or origin in (Set,
-                            MutableSet,
-                            FrozenSet,
-                            collections.abc.Set,
-                            collections.abc.MutableSet,
-                            set,
-                            frozenset):
+    if typ in supported_type or origin in supported_origin:
         try:
             inner = insp.get_args(typ, evaluate=True)[0]
         except IndexError:
@@ -148,10 +187,16 @@ def _maybe_node_for_set(
 
 
 def _maybe_node_for_tuple(
-    typ: Type,
-    overrides: OverridesT
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({
+        tuple,
+    }),
+    supported_origin=frozenset({
+        tuple, Tuple,
+    })
 ) -> Optional[col.TupleSchema]:
-    if typ is tuple or insp.get_origin(typ) in (tuple, Tuple):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         inner_types = insp.get_args(typ, evaluate=True)
         if Ellipsis in inner_types:
             raise TypeError(
@@ -172,8 +217,17 @@ def _maybe_node_for_tuple(
 
 
 def _maybe_node_for_dict(
-    typ: Type,
-    overrides: OverridesT
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({
+        collections.abc.Mapping,
+    }),
+    supported_origin=frozenset({
+        Dict,
+        dict,
+        collections.abc.Mapping,
+        Mapping,  # py3.6
+    })
 ) -> Optional[schema.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
@@ -181,19 +235,22 @@ def _maybe_node_for_dict(
     (for instance, python logging settings that have an infinite
     set of possible attributes).
     """
-    if insp.get_origin(typ) in (Dict, dict):
+    if typ in supported_type or insp.get_origin(typ) in supported_origin:
         return schema.SchemaNode(col.Mapping(unknown='preserve'))
     return None
 
 
 def _node_for_type(
-    typ: Type[Tuple],
+    typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
     if type(typ) is not type:
+        return None
+
+    if not hasattr(typ, '_fields'):
         return None
 
     type_schema = schema.SchemaNode(schema.Structure(typ, overrides))
@@ -232,7 +289,7 @@ PARSING_ORDER = [
     _maybe_node_for_tuple,
     _maybe_node_for_dict,
     _maybe_node_for_set,
-    _maybe_node_for_enum,
+    _maybe_node_for_subclass_based,
     # at this point it could be a user-defined type,
     # so the parser may do another recursive iteration
     # through the same plan
@@ -241,9 +298,9 @@ PARSING_ORDER = [
 
 
 def decide_node_type(
-    typ: Type[Union[Tuple, Any]],
+    typ: Type[iface.IType],
     overrides: OverridesT
-) -> schema.SchemaNode:
+) -> Union[schema.SchemaNode, col.TupleSchema, col.SequenceSchema]:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],

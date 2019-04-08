@@ -5,6 +5,7 @@ import inflection
 from .utils import normalize_name
 from .definitions import OverridesT
 from .definitions import FieldDefinition
+from . import interface as iface
 from .parser import PY37
 
 
@@ -37,7 +38,7 @@ BUILTIN_LITERALS_FOR_TYPES = {
 LINE_SKIP = ''
 
 
-def codegen_py(typ: Type[Tuple],
+def codegen_py(typ: Type[iface.IType],
                overrides: OverridesT = None,
                top: bool = True,
                indent: int = 4) -> Tuple[str, List[str]]:
@@ -49,9 +50,9 @@ def codegen_py(typ: Type[Tuple],
     :return:
     """
     if not overrides:
-        overrides = {}
+        overrides: Dict = {}
 
-    overrides_source = []
+    overrides_source: List[str] = []
 
     ind = ' ' * indent
     code = [f'class {typ.__name__}(NamedTuple):']
@@ -98,11 +99,11 @@ def codegen_py(typ: Type[Tuple],
 
     if top:
         if overrides_source:
-            overrides_source = 'overrides = {\n' + f'\n'.join(overrides_source) + '\n}'
+            overrides_source_str = 'overrides = {\n' + f'\n'.join(overrides_source) + '\n}'
             code.extend([
                 LINE_SKIP,
                 LINE_SKIP,
-                overrides_source,
+                overrides_source_str,
                 LINE_SKIP,
                 LINE_SKIP,
                 f'mk_{inflection.underscore(typ.__name__)}, '
@@ -125,7 +126,7 @@ def codegen_py(typ: Type[Tuple],
     return '\n'.join(code), overrides_source
 
 
-def literal_for_type(typ: Type) -> str:
+def literal_for_type(typ: Type[iface.IType]) -> str:
     # typ is either one of these:
     #   * builtin type
     #   * concrete NamedTuple
