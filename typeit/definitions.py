@@ -1,9 +1,21 @@
-from typing import Dict, NamedTuple, Union, Any
+from typing import Dict, NamedTuple, Union, Any, Mapping, Type
 
-import colander as  col
+from .flags import _Flag
+
+import colander as col
 
 
-OverridesT = Dict
+OverridesT = Mapping[
+    Union[
+        # field name override
+        property,
+        # flag override
+        _Flag,
+        # new type extension
+        Type
+    ],
+    Any
+]
 
 
 class FieldDefinition(NamedTuple):

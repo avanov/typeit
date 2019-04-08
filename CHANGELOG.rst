@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+0.10.0
+============
+
+* Fix bug in parsing union types with sequence variants.
+* Primitive types switched to strict matching.
+* Non-strict primitives flag `NON_STRICT_PRIMITIVES` is available for overrides.
+
 0.9.0
 ============
 

@@ -10,6 +10,7 @@ import colander as col
 import typing_inspect as insp
 
 from .definitions import OverridesT, TypeExtension
+from . import flags
 from . import schema
 from . import interface as iface
 
@@ -28,10 +29,17 @@ def _maybe_node_for_builtin(
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
+    if flags.NON_STRICT_PRIMITIVES in overrides:
+        registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+    else:
+        registry = schema.BUILTIN_TO_SCHEMA_TYPE
+
     try:
-        return schema.SchemaNode(schema.BUILTIN_TO_SCHEMA_TYPE[typ])
+        typ = registry[typ]
     except KeyError:
         return None
+
+    return schema.SchemaNode(typ)
 
 
 def _maybe_node_for_type_var(
@@ -52,7 +60,7 @@ def _maybe_node_for_subclass_based(
     typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
-    for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
+    for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_NODE.items():
         try:
             is_target = issubclass(typ, subclasses)
         except TypeError:
@@ -82,7 +90,10 @@ def _maybe_node_for_union(
         variants = insp.get_args(typ, evaluate=True)
         if variants in ((NoneClass, Any), (Any, NoneClass)):
             # Case for Optional[Any] and Union[None, Any] notations
-            return schema.SchemaNode(schema.AcceptEverything(), missing=None)
+            return schema.SchemaNode(
+                schema.primitives.AcceptEverything(),
+                missing=None
+            )
 
         allow_empty = NoneClass in variants
         node_variants = []
@@ -93,7 +104,16 @@ def _maybe_node_for_union(
             if allow_empty:
                 node.missing = None
             node_variants.append(node)
-        union_node = schema.SchemaNode(schema.UnionNode(variants=node_variants))
+
+        if flags.NON_STRICT_PRIMITIVES in overrides:
+            primitives_registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+        else:
+            primitives_registry = schema.BUILTIN_TO_SCHEMA_TYPE
+
+        union_node = schema.SchemaNode(
+            schema.UnionNode(variants=node_variants,
+                             primitives_registry=primitives_registry)
+        )
         if allow_empty:
             union_node.missing = None
         return union_node
@@ -280,7 +300,7 @@ PARSING_ORDER = [
 def decide_node_type(
     typ: Type[iface.IType],
     overrides: OverridesT
-) -> schema.SchemaNode:
+) -> Union[schema.SchemaNode, col.TupleSchema, col.SequenceSchema]:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],

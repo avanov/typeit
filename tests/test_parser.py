@@ -9,6 +9,7 @@ from money.money import Money
 
 from typeit import codegen as cg
 from typeit import parser as p
+from typeit import flags
 from typeit.sums import SumType, Variant
 
 
@@ -40,6 +41,83 @@ def test_type_with_unclarified_list():
     assert f'{x.x[0]} {x.y[0]}' == 'Hello World'
 
 
+def test_primitives_strictness():
+    class X(NamedTuple):
+        a: int
+        b: str
+        c: float
+        d: bool
+
+    mk_x, dict_x = p.type_constructor(X)
+    mk_x_nonstrict, dict_x_nonstrict = p.type_constructor(X, overrides={flags.NON_STRICT_PRIMITIVES: True})
+
+    data = {
+        'a': '1',
+        'b': '2',
+        'c': 5,
+        'd': 1
+    }
+
+    data_X = X(
+        a='1',
+        b='2',
+        c=5,
+        d=1,
+    )
+
+    with pytest.raises(colander.Invalid):
+        mk_x(data)
+
+    with pytest.raises(colander.Invalid):
+        dict_x(data_X)
+
+    assert mk_x_nonstrict(data) == X(
+        a=1,
+        b='2',
+        c=5.0,
+        d=True,
+    )
+    assert dict_x_nonstrict(data_X) == dict(
+        a=1,
+        b='2',
+        c=5.0,
+        d=True
+    )
+
+
+def test_serialize_list():
+    class X(NamedTuple):
+        x: Union[None, Sequence[str]]
+
+    mk_x, dict_x = p.type_constructor(X)
+    data = {
+        'x': ['str'],
+    }
+    x = mk_x(data)
+    assert dict_x(x) == data
+
+    data = {
+        'x': None,
+    }
+    x = mk_x(data)
+    assert dict_x(x) == data
+
+
+def test_serialize_union_lists():
+    """ This test makes sure that primitive values are matched strictly
+    when it comes to serialization / deserialization
+    """
+    class X(NamedTuple):
+        x: Union[Sequence[str], Sequence[float], Sequence[int]]
+
+    mk_x, dict_x = p.type_constructor(X)
+    data = {
+        'x': [1],
+    }
+    x = mk_x(data)
+    assert dict_x(x) == data
+
+
 def test_type_with_sequence():
     class X(NamedTuple):
         x: int
@@ -66,7 +144,7 @@ def test_type_with_tuple_primitives():
     mk_x, serializer = p.type_constructor(X)
 
     x = mk_x({
-        'a': ['value', '5'],
+        'a': ['value', 5],
         'b': (),
         'c': [],
         'd': ['Hello', 'Random', 'Value', 5, None, True, {}],
@@ -224,7 +302,7 @@ def test_type_with_set():
         'e': [],
         'f': [],
         'g': [],
-        'h': ['1'],
+        'h': [1],
     })
     assert x.a == x.b == x.c == frozenset()
     assert isinstance(x.d, frozenset)
@@ -325,8 +403,10 @@ def test_union_primitive_match():
         x = mk_x({'x': True})
         assert isinstance(x.x, bool)
 
-    x = mk_x({'x': '1'})
+    data = {'x': '1'}
+    x = mk_x(data)
     assert isinstance(x.x, str)
+    assert serializer(x) == data
 
 
 def test_parser_github_pull_request_payload():
