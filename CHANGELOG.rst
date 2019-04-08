@@ -8,6 +8,8 @@ CHANGELOG
 * Fix bug in parsing union types with sequence variants.
 * Primitive types switched to strict matching.
 * Non-strict primitives flag `NON_STRICT_PRIMITIVES` is available for overrides.
+* Added support for `typing.Mapping`
+* Added support for `pathlib.Path`
 
 0.9.0
 ============
