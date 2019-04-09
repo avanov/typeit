@@ -1,14 +1,22 @@
 import enum as std_enum
 import pathlib
-from typing import Type, NamedTuple, Sequence, Union, Any, Mapping, Tuple, Set
+from typing import Type, Sequence, Union, Any, Mapping, Tuple, Set, Callable
+import typing_inspect as insp
 
 import colander as col
 
 from ..definitions import OverridesT
 from ..sums import SumType
 from .. import interface as iface
+from ..compat import PY_VERSION
 
 from . import primitives
+
+
+generic_type_bases: Callable[[Type], Tuple[Type, ...]] = (
+    insp.get_generic_bases if PY_VERSION < (3, 7) else
+    lambda x: (insp.get_origin(x),)
+)
 
 
 EnumLike = Union[std_enum.Enum, SumType]
@@ -88,7 +96,7 @@ class Structure(col.Mapping):
             for k, v in r.items()
         })
 
-    def serialize(self, node, appstruct: NamedTuple):
+    def serialize(self, node, appstruct: iface.IType):
         if appstruct is col.null:
             return super().serialize(node, appstruct)
         return super().serialize(
@@ -101,18 +109,30 @@ class Structure(col.Mapping):
 
 
 class UnionNode(col.SchemaType):
+    """ This node handles Union[T1, T2, ...] cases.
+    Please note that Optional[T] is normalized by parser as Union[None, T],
+    and this UnionNode will not have None among its variants. Instead,
+    `UnionNode.missing` will be set to None, indicating the value for missing
+    data.
+    """
     def __init__(
         self,
-        variants: Sequence[Union[col.SchemaNode, col.SequenceSchema, col.TupleSchema]],
-        primitives_registry: Union[
+        variant_nodes: Sequence[
+            Tuple[
+                Type, Union[col.SchemaNode, col.SequenceSchema, col.TupleSchema]
+            ],
+        ],
+        primitive_types: Union[
             Mapping[Type, primitives.PrimitiveSchemaTypeT],
             Mapping[Type, primitives.NonStrictPrimitiveSchemaTypeT],
         ]
     ) -> None:
         super().__init__()
-        self.primitives_registry = primitives_registry
-        self.variants = variants
-        self.variant_types: Set[col.SchemaNode] = {x.typ for x in variants}
+        self.primitive_types = primitive_types
+        self.variant_nodes = variant_nodes
+        self.variant_schema_types: Set[col.SchemaType] = {
+            x.typ for _, x in variant_nodes
+        }
 
     def deserialize(self, node, cstruct):
         if cstruct is None:
@@ -132,8 +152,8 @@ class UnionNode(col.SchemaType):
         # fact that both str() and int() constructors can happily
         # handle that value and return one of the expected variants
         # (but incorrectly!)
-        prim_schema_type = self.primitives_registry.get(type(cstruct))
-        if prim_schema_type in self.variant_types:
+        prim_schema_type = self.primitive_types.get(type(cstruct))
+        if prim_schema_type in self.variant_schema_types:
             try:
                 return prim_schema_type.deserialize(node, cstruct)
             except col.Invalid:
@@ -142,7 +162,7 @@ class UnionNode(col.SchemaType):
         # next, iterate over available variants and return the first
         # matched structure.
         remaining_variants = (
-            x for x in self.variants
+            x for _, x in self.variant_nodes
             if x.typ is not prim_schema_type
         )
         for variant in remaining_variants:
@@ -163,19 +183,20 @@ class UnionNode(col.SchemaType):
 
         struct_type = type(appstruct)
 
-        prim_schema_type = self.primitives_registry.get(struct_type)
-        if prim_schema_type in self.variant_types:
+        prim_schema_type = self.primitive_types.get(struct_type)
+        if prim_schema_type in self.variant_schema_types:
             try:
                 return prim_schema_type.serialize(node, appstruct)
             except col.Invalid:
                 pass
 
         remaining_variants = (
-            x for x in self.variants
-            if x.typ is not prim_schema_type
+            (t, s)
+            for (t, s) in self.variant_nodes
+            if s.typ is not prim_schema_type
         )
 
-        for variant in remaining_variants:
+        for var_type, var_schema in remaining_variants:
             # Sequences and tuples require special treatment here:
             # since there is no direct reference to the target python data type
             # through variant.typ.typ that we could use to compare this variant
@@ -184,27 +205,38 @@ class UnionNode(col.SchemaType):
             # otherwise we skip this variant (we need to do that to make sure that
             # a Union variant matches appstruct's type as close as possible)
             # if isinstance(struct_type, (list, tuple, set))
-            if isinstance(variant, col.SequenceSchema):
+            if isinstance(var_schema, col.SequenceSchema):
                 if not isinstance(appstruct, list):
                     continue
                 try:
-                    return variant.serialize(appstruct)
+                    return var_schema.serialize(appstruct)
                 except col.Invalid:
                     continue
 
-            elif isinstance(variant, col.TupleSchema):
+            elif isinstance(var_schema, col.TupleSchema):
                 if not isinstance(appstruct, tuple):
                     continue
                 try:
-                    return variant.serialize(appstruct)
+                    return var_schema.serialize(appstruct)
                 except col.Invalid:
                     continue
 
             else:
                 # schema.SchemaNode
-                if variant.typ.typ is not struct_type:
-                    continue
-                return variant.serialize(appstruct)
+                # We need to check if the type of the appstruct
+                # is the same as the type that appears in the Union
+                # definition and is associated with this SchemaNode.
+                # get_origin() normalizes meta-types like `typing.Dict`
+                # to dict class etc.
+                #  Please note that the order of checks matters here, since
+                # subscripted generics like typing.Dict cannot be used with
+                # issubclass
+                if insp.is_generic_type(var_type):
+                    matching_types = (var_type,) + generic_type_bases(var_type)
+                else:
+                    matching_types = (insp.get_origin(var_type), var_type)
+                if struct_type in matching_types or issubclass(struct_type, var_type):
+                    return var_schema.serialize(appstruct)
 
         raise col.Invalid(
             node,
