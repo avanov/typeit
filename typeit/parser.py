@@ -1,4 +1,3 @@
-import sys
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
@@ -14,15 +13,10 @@ from . import flags
 from . import schema
 from . import interface as iface
 
-
-PY37 = sys.version_info[:2] == (3, 7)
-PY36 = sys.version_info[:2] == (3, 6)
-
-
 T = TypeVar('T')
 
 
-def _maybe_node_for_builtin(
+def _maybe_node_for_primitive(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT
 ) -> Optional[schema.SchemaNode]:
@@ -35,11 +29,11 @@ def _maybe_node_for_builtin(
         registry = schema.BUILTIN_TO_SCHEMA_TYPE
 
     try:
-        typ = registry[typ]
+        schema_type = registry[typ]
     except KeyError:
         return None
 
-    return schema.SchemaNode(typ)
+    return schema.SchemaNode(schema_type)
 
 
 def _maybe_node_for_type_var(
@@ -52,7 +46,7 @@ def _maybe_node_for_type_var(
     we can treat it as typing.Any.
     """
     if isinstance(typ, TypeVar):
-        return _maybe_node_for_builtin(Any, overrides)
+        return _maybe_node_for_primitive(Any, overrides)
     return None
 
 
@@ -96,23 +90,24 @@ def _maybe_node_for_union(
             )
 
         allow_empty = NoneClass in variants
-        node_variants = []
+        # represents a 2-tuple of (type_from_signature, associated_schema_node)
+        variant_nodes: List[Tuple[Type, schema.SchemaNode]] = []
         for variant in variants:
             if variant is NoneClass:
                 continue
             node = decide_node_type(variant, overrides)
             if allow_empty:
                 node.missing = None
-            node_variants.append(node)
+            variant_nodes.append((variant, node))
 
         if flags.NON_STRICT_PRIMITIVES in overrides:
-            primitives_registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+            primitive_types = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
         else:
-            primitives_registry = schema.BUILTIN_TO_SCHEMA_TYPE
+            primitive_types = schema.BUILTIN_TO_SCHEMA_TYPE
 
         union_node = schema.SchemaNode(
-            schema.UnionNode(variants=node_variants,
-                             primitives_registry=primitives_registry)
+            schema.UnionNode(variant_nodes=variant_nodes,
+                             primitive_types=primitive_types)
         )
         if allow_empty:
             union_node.missing = None
@@ -282,7 +277,7 @@ def _maybe_node_for_overridden(
 
 PARSING_ORDER = [
     _maybe_node_for_overridden,
-    _maybe_node_for_builtin,
+    _maybe_node_for_primitive,
     _maybe_node_for_type_var,
     _maybe_node_for_union,
     _maybe_node_for_list,

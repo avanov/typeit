@@ -6,7 +6,7 @@ from .utils import normalize_name
 from .definitions import OverridesT
 from .definitions import FieldDefinition
 from . import interface as iface
-from .parser import PY37
+from .compat import PY37
 
 
 _type_name_getter = lambda typ: typ.__name__
