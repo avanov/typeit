@@ -1,0 +1,49 @@
+import pathlib as p
+from typing import NamedTuple, Union, Dict
+
+from typeit import type_constructor
+
+
+def test_path():
+    class X(NamedTuple):
+        pure: p.PurePath
+        pure_posix: p.PurePosixPath
+        pure_win: p.PureWindowsPath
+        path: p.Path
+        # WinPath is not possible to instantiate on Linux,
+        # we are omitting a test here
+        posix_path: p.PosixPath
+
+    mk_x, dict_x = type_constructor(X)
+
+    data = {
+        'pure': '/',
+        'pure_posix': '/a/b/c',
+        'pure_win': '\\\\a\\b\\c',
+        'path': '\\a\\b\\c',
+        'posix_path': '.',
+    }
+    x = mk_x(data)
+    assert dict_x(x) == data
+
+
+def test_path_union():
+    class X(NamedTuple):
+        x: Union[p.Path, Dict]
+
+    mk_x, dict_x = type_constructor(X)
+    data = {
+        'x': '/'
+    }
+    x = mk_x(data)
+    assert isinstance(x.x, p.Path)
+    assert dict_x(x) == data
+
+    data = {
+        'x': {
+            'x': '/'
+        }
+    }
+    x = mk_x(data)
+    assert isinstance(x.x, dict)
+    assert dict_x(x) == data

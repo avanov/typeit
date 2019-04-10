@@ -38,7 +38,7 @@ with (here / 'README.rst').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.10.0',
+      version='0.10.1',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
@@ -54,7 +54,7 @@ setup(name='typeit',
       author_email='maxim.avanov@gmail.com',
       url='https://github.com/avanov/typeit',
       keywords='utils typing json yaml serialization',
-      packages=find_packages(exclude=['tests']),
+      packages=find_packages(exclude=['tests', 'tests.*']),
       include_package_data=True,
       zip_safe=False,
       test_suite='tests',
