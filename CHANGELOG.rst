@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.10.1
+============
+
+* Fix bug in serialization of union types.
+
 0.10.0
 ============
 
