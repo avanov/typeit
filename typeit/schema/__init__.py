@@ -4,6 +4,7 @@ from typing import Type, Sequence, Union, Any, Mapping, Tuple, Set, Callable
 import typing_inspect as insp
 
 import colander as col
+from pyrsistent import pmap
 
 from ..definitions import OverridesT
 from ..sums import SumType
@@ -74,15 +75,15 @@ class Structure(col.Mapping):
         super().__init__(unknown)
         self.typ = typ
         # source_field_name => struct_field_name
-        self.deserialize_overrides = {
+        self.deserialize_overrides = pmap({
             overrides[getattr(typ, x)]: x
             for x in typ._fields
             if getattr(typ, x) in overrides
-        }
+        })
         # struct_field_name => source_field_name
-        self.serialize_overrides = {
+        self.serialize_overrides = pmap({
             v: k for k, v in self.deserialize_overrides.items()
-        }
+        })
 
     def __repr__(self) -> str:
         return f'Structure(typ={self.typ})'

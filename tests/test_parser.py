@@ -17,7 +17,7 @@ def test_parser_empty_struct():
     struct = {}
     parsed, overrides = cg.parse(struct)
     struct, overrides_ = cg.construct_type('main', parsed)
-    overrides.update(overrides_)
+    overrides = overrides.update(overrides_)
     assert overrides == {}
     python_src, __ = cg.codegen_py(struct, overrides, False)
     assert python_src == "class Main(NamedTuple):\n    ...\n\n"
@@ -33,7 +33,7 @@ def test_type_with_unclarified_list():
         x: Sequence
         y: List
 
-    mk_main, dict_main = p.type_constructor(X)
+    mk_main, dict_main = p.type_constructor | X
     x = mk_main({'x': [], 'y': []})
     x = mk_main({'x': [1], 'y': ['1']})
     assert x.x[0] == int(x.y[0])
@@ -48,8 +48,8 @@ def test_primitives_strictness():
         c: float
         d: bool
 
-    mk_x, dict_x = p.type_constructor(X)
-    mk_x_nonstrict, dict_x_nonstrict = p.type_constructor(X, overrides={flags.NON_STRICT_PRIMITIVES: True})
+    mk_x, dict_x = p.type_constructor | X
+    mk_x_nonstrict, dict_x_nonstrict = p.type_constructor & flags.NON_STRICT_PRIMITIVES | X
 
     data = {
         'a': '1',
@@ -89,7 +89,7 @@ def test_serialize_list():
     class X(NamedTuple):
         x: Union[None, Sequence[str]]
 
-    mk_x, dict_x = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor | X
     data = {
         'x': ['str'],
     }
@@ -110,7 +110,7 @@ def test_serialize_union_lists():
     class X(NamedTuple):
         x: Union[Sequence[str], Sequence[float], Sequence[int]]
 
-    mk_x, dict_x = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor | X
     data = {
         'x': [1],
     }
@@ -336,7 +336,7 @@ def test_parser_github_pull_request_payload():
     github_pr_dict = json.loads(data)
     parsed, overrides = cg.parse(github_pr_dict)
     typ, overrides_ = cg.construct_type('main', parsed)
-    overrides.update(overrides_)
+    overrides = overrides.update(overrides_)
 
     python_source, __ = cg.codegen_py(typ, overrides)
     assert 'overrides' in python_source
