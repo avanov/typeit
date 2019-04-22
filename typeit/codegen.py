@@ -110,14 +110,18 @@ def codegen_py(typ: Type[iface.IType],
                 LINE_SKIP,
                 f'mk_{inflection.underscore(typ.__name__)}, '
                 f'dict_{inflection.underscore(typ.__name__)} = '
-                f'type_constructor({typ.__name__}, overrides)'
+                f'type_constructor & overrides ^ {typ.__name__}',
+                LINE_SKIP,
             ])
         else:
-            code.append(
+            code.extend([
+                LINE_SKIP,
+                LINE_SKIP,
                 f'mk_{inflection.underscore(typ.__name__)}, '
                 f'dict_{inflection.underscore(typ.__name__)} = '
-                f'type_constructor({typ.__name__})'
-            )
+                f'type_constructor ^ {typ.__name__}',
+                LINE_SKIP,
+            ])
 
         code = [
             'from typing import NamedTuple, Dict, Any, List, Optional',

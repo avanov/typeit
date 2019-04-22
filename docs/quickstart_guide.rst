@@ -51,7 +51,7 @@ You should see output similar to this:
     }
 
 
-    mk_main, dict_main = type_constructor(Main, overrides)
+    mk_main, dict_main = type_constructor & overrides ^ Main
 
 
 You can use this snippet as a starting point to improve further.

@@ -354,7 +354,7 @@ class _TypeConstructor:
             overrides = self.overrides.update(override)
         return self.__class__(overrides=overrides)
 
-    def __xor__(self, typ: Type) -> TypeTools:
+    def __xor__(self, typ: Type[T]) -> TypeTools:
         return self.__call__(typ, self.overrides)
 
 

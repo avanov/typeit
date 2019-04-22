@@ -312,6 +312,11 @@ def test_type_with_set():
     assert x.d == x.h
 
 
+def test_schema_node():
+    x = schema.SchemaNode(schema.primitives.Int())
+    assert x.__repr__().startswith('SchemaNode(<typeit.schema.primitives.Int ')
+
+
 def test_type_with_dict():
     """ Create a type with an explicit dictionary value
     that can hold any kv pairs
