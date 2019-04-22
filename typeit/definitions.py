@@ -1,4 +1,4 @@
-from typing import NamedTuple, Union, Any, Mapping, Type
+from typing import NamedTuple, Union, Any, Type
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -16,15 +16,6 @@ OverridesT = PMap[
         Type
     ],
     Any
-]
-
-
-OverrideT = Union[
-    # flag override
-    _Flag,
-    # new type extension
-    Type,
-    Mapping[property, str],
 ]
 
 

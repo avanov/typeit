@@ -1,13 +1,13 @@
 from typing import Type, NamedTuple
-from .nodes import SchemaNode
+from . import nodes
 
 
 class TypeExtension(NamedTuple):
     typ: Type
-    schema: SchemaNode
+    schema: nodes.SchemaNode
 
     def __lshift__(self, other) -> 'TypeExtension':
-        self.schema.add(SchemaNode(other))
+        self.schema.add(nodes.SchemaNode(other))
         return self
 
 
@@ -21,7 +21,7 @@ class SubscriptableSchemaTypeM(type):
     def __getitem__(cls, item: Type) -> TypeExtension:
         return TypeExtension(
             typ=item,
-            schema=SchemaNode(cls()),
+            schema=nodes.SchemaNode(cls()),
         )
 
     def __repr__(self):

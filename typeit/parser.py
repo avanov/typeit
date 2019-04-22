@@ -10,39 +10,49 @@ import colander as col
 import typing_inspect as insp
 from pyrsistent import pmap
 
-from .definitions import OverridesT, NO_OVERRIDES, OverrideT
+from .definitions import OverridesT, NO_OVERRIDES
 from . import flags
 from . import schema
+from .schema.meta import TypeExtension
 from . import interface as iface
 
 
 T = TypeVar('T')
 
 
+OverrideT = Union[
+    # flag override
+    flags._Flag,
+    # new type extension
+    TypeExtension,
+    Mapping[property, str],
+]
+
+
 def _maybe_node_for_primitive(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT
-) -> Optional[schema.SchemaNode]:
+) -> Optional[schema.nodes.SchemaNode]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
     if flags.NON_STRICT_PRIMITIVES in overrides:
-        registry = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+        registry = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
     else:
-        registry = schema.BUILTIN_TO_SCHEMA_TYPE
+        registry = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
 
     try:
         schema_type = registry[typ]
     except KeyError:
         return None
 
-    return schema.SchemaNode(schema_type)
+    return schema.nodes.SchemaNode(schema_type)
 
 
 def _maybe_node_for_type_var(
     typ: Type,
     overrides: OverridesT
-) -> Optional[schema.SchemaNode]:
+) -> Optional[schema.nodes.SchemaNode]:
     """ When we parse Sequence and List definitions without
     clarified item type, it is possible that this item is defined
     as TypeVar. Since it's an indicator of a generic collection,
@@ -56,8 +66,8 @@ def _maybe_node_for_type_var(
 def _maybe_node_for_subclass_based(
     typ: Type[iface.IType],
     overrides: OverridesT
-) -> Optional[schema.SchemaNode]:
-    for subclasses, schema_cls in schema._SUBCLASS_BASED_TO_SCHEMA_NODE.items():
+) -> Optional[schema.nodes.SchemaNode]:
+    for subclasses, schema_typ in schema.types.SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
         try:
             is_target = issubclass(typ, subclasses)
         except TypeError:
@@ -66,7 +76,7 @@ def _maybe_node_for_subclass_based(
             return None
         else:
             if is_target:
-                return schema.SchemaNode(schema_cls(typ, allow_empty=True))
+                return schema.nodes.SchemaNode(schema_typ(typ, allow_empty=True))
     return None
 
 
@@ -77,7 +87,7 @@ def _maybe_node_for_union(
     supported_origin=frozenset({
         Union,
     })
-) -> Optional[schema.SchemaNode]:
+) -> Optional[schema.nodes.SchemaNode]:
     """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -87,14 +97,14 @@ def _maybe_node_for_union(
         variants = insp.get_args(typ, evaluate=True)
         if variants in ((NoneClass, Any), (Any, NoneClass)):
             # Case for Optional[Any] and Union[None, Any] notations
-            return schema.SchemaNode(
+            return schema.nodes.SchemaNode(
                 schema.primitives.AcceptEverything(),
                 missing=None
             )
 
         allow_empty = NoneClass in variants
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
-        variant_nodes: List[Tuple[Type, schema.SchemaNode]] = []
+        variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
         for variant in variants:
             if variant is NoneClass:
                 continue
@@ -104,13 +114,13 @@ def _maybe_node_for_union(
             variant_nodes.append((variant, node))
 
         if flags.NON_STRICT_PRIMITIVES in overrides:
-            primitive_types = schema.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
+            primitive_types = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
         else:
-            primitive_types = schema.BUILTIN_TO_SCHEMA_TYPE
+            primitive_types = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
 
-        union_node = schema.SchemaNode(
-            schema.UnionNode(variant_nodes=variant_nodes,
-                             primitive_types=primitive_types)
+        union_node = schema.nodes.SchemaNode(
+            schema.types.Union(variant_nodes=variant_nodes,
+                               primitive_types=primitive_types)
         )
         if allow_empty:
             union_node.missing = None
@@ -174,7 +184,7 @@ def _maybe_node_for_set(
             # Python 3.6 will have empty inner type,
             # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
-        return schema.SetSchema(
+        return schema.nodes.SetSchema(
             decide_node_type(inner, overrides),
             frozen=(
                 typ is frozenset or
@@ -226,7 +236,7 @@ def _maybe_node_for_dict(
         collections.abc.Mapping,
         Mapping,  # py3.6
     })
-) -> Optional[schema.SchemaNode]:
+) -> Optional[schema.nodes.SchemaNode]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
@@ -234,14 +244,14 @@ def _maybe_node_for_dict(
     set of possible attributes).
     """
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
-        return schema.SchemaNode(col.Mapping(unknown='preserve'))
+        return schema.nodes.SchemaNode(col.Mapping(unknown='preserve'))
     return None
 
 
 def _node_for_type(
     typ: Type[iface.IType],
     overrides: OverridesT
-) -> Optional[schema.SchemaNode]:
+) -> Optional[schema.nodes.SchemaNode]:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
@@ -251,7 +261,7 @@ def _node_for_type(
     if not hasattr(typ, '_fields'):
         return None
 
-    type_schema = schema.SchemaNode(schema.Structure(typ, overrides))
+    type_schema = schema.nodes.SchemaNode(schema.types.Structure(typ, overrides))
     for field_name, field_type in get_type_hints(typ).items():
         # apply field override, if available
         field = getattr(typ, field_name)
@@ -298,7 +308,7 @@ PARSING_ORDER = [
 def decide_node_type(
     typ: Type[iface.IType],
     overrides: OverridesT
-) -> Union[schema.SchemaNode, col.TupleSchema, col.SequenceSchema]:
+) -> Union[schema.nodes.SchemaNode, col.TupleSchema, col.SequenceSchema]:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
@@ -348,7 +358,7 @@ class _TypeConstructor:
     def __and__(self, override: OverrideT) -> '_TypeConstructor':
         if isinstance(override, flags._Flag):
             overrides = self.overrides.set(override, True)
-        elif isinstance(override, schema.TypeExtension):
+        elif isinstance(override, schema.meta.TypeExtension):
             overrides = self.overrides.set(override.typ, override)
         else:
             overrides = self.overrides.update(override)

@@ -1,14 +1,16 @@
-from typing import Union
+import typing as t
 
 import colander as col
 from .meta import SubscriptableSchemaTypeM
+from .errors import Invalid
+
 
 
 def _strict_deserialize(node, rval, cstruct):
     if rval in (col.null, None):
         return rval
     if type(rval) is not type(cstruct):
-        raise col.Invalid(
+        raise Invalid(
             node,
             'Primitive values should adhere strict type semantics',
             cstruct
@@ -21,7 +23,7 @@ def _strict_serialize(node, allowed_type, appstruct):
         return appstruct
 
     if type(appstruct) is not allowed_type:
-        raise col.Invalid(
+        raise Invalid(
             node,
             'Primitive values should adhere strict type semantics',
             appstruct
@@ -140,7 +142,7 @@ class Float(NonStrictFloat):
         return super().serialize(node, appstruct)
 
 
-NonStrictPrimitiveSchemaTypeT = Union[
+NonStrictPrimitiveSchemaTypeT = t.Union[
     AcceptEverything,
     NonStrictStr,
     NonStrictInt,
@@ -149,10 +151,30 @@ NonStrictPrimitiveSchemaTypeT = Union[
 ]
 
 
-PrimitiveSchemaTypeT = Union[
+PrimitiveSchemaTypeT = t.Union[
     AcceptEverything,
     Str,
     Int,
     Float,
     Bool,
 ]
+
+
+# Maps primitive types that appear in type signatures
+# to colander SchemaNodes responsible for serialization/deserialization
+BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, PrimitiveSchemaTypeT] = {
+    t.Any: AcceptEverything(),
+    str: Str(allow_empty=True),
+    int: Int(),
+    float: Float(),
+    bool: Bool(),
+}
+
+
+NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, NonStrictPrimitiveSchemaTypeT] = {
+    t.Any: AcceptEverything(),
+    str: NonStrictStr(allow_empty=True),
+    int: NonStrictInt(),
+    float: NonStrictFloat(),
+    bool: NonStrictBool(),
+}
