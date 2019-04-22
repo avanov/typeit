@@ -5,8 +5,6 @@ from pyrsistent.typing import PMap
 
 from .flags import _Flag
 
-import colander as col
-
 
 OverridesT = PMap[
     Union[
@@ -37,7 +35,3 @@ class FieldDefinition(NamedTuple):
     source_name: str
     field_name: str
     field_type: Union[Any, NamedTuple]
-
-
-class TypeExtension(NamedTuple):
-    schema: col.SchemaNode

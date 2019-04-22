@@ -10,7 +10,7 @@ import colander as col
 import typing_inspect as insp
 from pyrsistent import pmap
 
-from .definitions import OverridesT, TypeExtension, NO_OVERRIDES, OverrideT
+from .definitions import OverridesT, NO_OVERRIDES, OverrideT
 from . import flags
 from . import schema
 from . import interface as iface
@@ -273,7 +273,7 @@ def _maybe_node_for_overridden(
     overrides: OverridesT
 ):
     if typ in overrides:
-        override: TypeExtension = overrides[typ]
+        override: schema.TypeExtension = overrides[typ]
         return override.schema
     return None
 
@@ -348,11 +348,13 @@ class _TypeConstructor:
     def __and__(self, override: OverrideT) -> '_TypeConstructor':
         if isinstance(override, flags._Flag):
             overrides = self.overrides.set(override, True)
+        elif isinstance(override, schema.TypeExtension):
+            overrides = self.overrides.set(override.typ, override)
         else:
             overrides = self.overrides.update(override)
         return self.__class__(overrides=overrides)
 
-    def __or__(self, typ: Type) -> TypeTools:
+    def __xor__(self, typ: Type) -> TypeTools:
         return self.__call__(typ, self.overrides)
 
 

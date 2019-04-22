@@ -270,13 +270,13 @@ def construct_type(name: str,
     :return: a new type based on a NamedTuple and its overrides
     """
     type_fields: List[Tuple[str, NamedTuple]] = []
-    overrides: PMap[str, str] = pmap()
+    overrides: Dict[str, str] = {}
 
     for c in fields:
         field_type = c.field_type
         type_fields.append((c.field_name, field_type))
         if c.field_name != c.source_name:
-            overrides = overrides.set(c.field_name, c.source_name)
+            overrides[c.field_name] = c.source_name
 
     typ = NamedTuple(inflection.camelize(name), type_fields)
     type_overrides = pmap({

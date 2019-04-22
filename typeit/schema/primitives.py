@@ -1,6 +1,7 @@
 from typing import Union
 
 import colander as col
+from .meta import SubscriptableSchemaTypeM
 
 
 def _strict_deserialize(node, rval, cstruct):
@@ -28,7 +29,7 @@ def _strict_serialize(node, allowed_type, appstruct):
     return appstruct
 
 
-class AcceptEverything(col.SchemaType):
+class AcceptEverything(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
     """ A schema type to correspond to typing.Any, i.e. allows
     any data to pass through the type constructor.
     """
@@ -39,7 +40,7 @@ class AcceptEverything(col.SchemaType):
         return cstruct
 
 
-class NonStrictInt(col.Int):
+class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
         """ Default colander integer serializer returns a string representation
@@ -65,7 +66,7 @@ class Int(NonStrictInt):
         return super().serialize(node, appstruct)
 
 
-class NonStrictBool(col.Bool):
+class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
         """ Default colander bool serializer returns a string representation
@@ -91,7 +92,7 @@ class Bool(NonStrictBool):
         return super().serialize(node, appstruct)
 
 
-class NonStrictStr(col.Str):
+class NonStrictStr(col.Str, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
         """ Default colander str serializer serializes None as 'None',
@@ -119,7 +120,7 @@ class Str(NonStrictStr):
         return super().serialize(node, appstruct)
 
 
-class NonStrictFloat(col.Float):
+class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
         r = super().serialize(node, appstruct)
