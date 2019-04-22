@@ -1,9 +1,10 @@
 import enum as std_enum
 import pathlib
-from typing import Type, Sequence, Union, Any, Mapping, Tuple, Set, Callable
+import typing as t
 import typing_inspect as insp
 
 import colander as col
+from pyrsistent import pmap
 
 from ..definitions import OverridesT
 from ..sums import SumType
@@ -11,19 +12,21 @@ from .. import interface as iface
 from ..compat import PY_VERSION
 
 from . import primitives
+from .nodes import SchemaNode
+from .meta import SubscriptableSchemaTypeM, TypeExtension
 
 
-generic_type_bases: Callable[[Type], Tuple[Type, ...]] = (
+generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = (
     insp.get_generic_bases if PY_VERSION < (3, 7) else
     lambda x: (insp.get_origin(x),)
 )
 
 
-EnumLike = Union[std_enum.Enum, SumType]
+EnumLike = t.Union[std_enum.Enum, SumType]
 
 
-class Enum(col.Str):
-    def __init__(self, typ: Type[EnumLike], *args, **kwargs) -> None:
+class Enum(primitives.Str):
+    def __init__(self, typ: t.Type[EnumLike], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.typ = typ
 
@@ -43,12 +46,12 @@ class Enum(col.Str):
             raise col.Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
-class Path(col.Str):
-    def __init__(self, typ: Type[pathlib.PurePath], *args, **kwargs) -> None:
+class Path(primitives.Str):
+    def __init__(self, typ: t.Type[pathlib.PurePath], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.typ = typ
 
-    def serialize(self, node, appstruct: Union[col._null, pathlib.PurePath]):
+    def serialize(self, node, appstruct: t.Union[col._null, pathlib.PurePath]):
         if appstruct is col.null:
             return appstruct
         r = super().serialize(node, str(appstruct))
@@ -64,25 +67,29 @@ class Path(col.Str):
             raise col.Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
+class Tuple(col.Tuple, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
 class Structure(col.Mapping):
     """ SchemaNode for NamedTuples and derived types.
     """
     def __init__(self,
-                 typ: Type[iface.IType],
+                 typ: t.Type[iface.IType],
                  overrides: OverridesT,
                  unknown: str = 'ignore') -> None:
         super().__init__(unknown)
         self.typ = typ
         # source_field_name => struct_field_name
-        self.deserialize_overrides = {
+        self.deserialize_overrides = pmap({
             overrides[getattr(typ, x)]: x
             for x in typ._fields
             if getattr(typ, x) in overrides
-        }
+        })
         # struct_field_name => source_field_name
-        self.serialize_overrides = {
+        self.serialize_overrides = pmap({
             v: k for k, v in self.deserialize_overrides.items()
-        }
+        })
 
     def __repr__(self) -> str:
         return f'Structure(typ={self.typ})'
@@ -108,7 +115,7 @@ class Structure(col.Mapping):
         )
 
 
-class UnionNode(col.SchemaType):
+class UnionNode(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
     """ This node handles Union[T1, T2, ...] cases.
     Please note that Optional[T] is normalized by parser as Union[None, T],
     and this UnionNode will not have None among its variants. Instead,
@@ -117,20 +124,20 @@ class UnionNode(col.SchemaType):
     """
     def __init__(
         self,
-        variant_nodes: Sequence[
-            Tuple[
-                Type, Union[col.SchemaNode, col.SequenceSchema, col.TupleSchema]
+        variant_nodes: t.Sequence[
+            t.Tuple[
+                t.Type,t.Union[col.SchemaNode, col.SequenceSchema, col.TupleSchema]
             ],
         ],
-        primitive_types: Union[
-            Mapping[Type, primitives.PrimitiveSchemaTypeT],
-            Mapping[Type, primitives.NonStrictPrimitiveSchemaTypeT],
+        primitive_types: t.Union[
+            t.Mapping[t.Type, primitives.PrimitiveSchemaTypeT],
+            t.Mapping[t.Type, primitives.NonStrictPrimitiveSchemaTypeT],
         ]
     ) -> None:
         super().__init__()
         self.primitive_types = primitive_types
         self.variant_nodes = variant_nodes
-        self.variant_schema_types: Set[col.SchemaType] = {
+        self.variant_schema_types: t.Set[col.SchemaType] = {
             x.typ for _, x in variant_nodes
         }
 
@@ -177,7 +184,7 @@ class UnionNode(col.SchemaType):
             cstruct
         )
 
-    def serialize(self, node, appstruct: Any):
+    def serialize(self, node, appstruct: t.Any):
         if appstruct in (col.null, None):
             return None
 
@@ -259,18 +266,10 @@ class SetSchema(col.SequenceSchema):
         return set(r)
 
 
-class SchemaNode(col.SchemaNode):
-    """ Colander's SchemaNode doesn't show node type in it's repr,
-    we fix it with this subclass.
-    """
-    def __repr__(self) -> str:
-        return f'SchemaNode({self.typ})'
-
-
 # Maps primitive types that appear in type signatures
 # to colander SchemaNodes responsible for serialization/deserialization
-BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, primitives.PrimitiveSchemaTypeT] = {
-    Any: primitives.AcceptEverything(),
+BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, primitives.PrimitiveSchemaTypeT] = {
+    t.Any: primitives.AcceptEverything(),
     str: primitives.Str(allow_empty=True),
     int: primitives.Int(),
     float: primitives.Float(),
@@ -278,8 +277,8 @@ BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, primitives.PrimitiveSchemaTypeT] = {
 }
 
 
-NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, primitives.NonStrictPrimitiveSchemaTypeT] = {
-    Any: primitives.AcceptEverything(),
+NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, primitives.NonStrictPrimitiveSchemaTypeT] = {
+    t.Any: primitives.AcceptEverything(),
     str: primitives.NonStrictStr(allow_empty=True),
     int: primitives.NonStrictInt(),
     float: primitives.NonStrictFloat(),
@@ -287,8 +286,8 @@ NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: Mapping[Type, primitives.NonStrictPrimitiveSc
 }
 
 
-_SUBCLASS_BASED_TO_SCHEMA_NODE: Mapping[
-    Tuple[Type, ...], Type[col.SchemaNode],
+_SUBCLASS_BASED_TO_SCHEMA_NODE: t.Mapping[
+    t.Tuple[t.Type, ...], t.Type[SchemaNode],
 ] = {
     (std_enum.Enum, SumType): Enum,
     # Pathlib's PurePath and its derivatives

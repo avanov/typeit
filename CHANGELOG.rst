@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.11.0
+============
+
+* ``pyrsistent`` is now part of minimal dependencies.
+* Add support for chaining / compositional API for overrides.
+
 0.10.1
 ============
 

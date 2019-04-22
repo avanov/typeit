@@ -10,6 +10,7 @@ from money.money import Money
 from typeit import codegen as cg
 from typeit import parser as p
 from typeit import flags
+from typeit import schema
 from typeit.sums import SumType, Variant
 
 
@@ -17,7 +18,7 @@ def test_parser_empty_struct():
     struct = {}
     parsed, overrides = cg.parse(struct)
     struct, overrides_ = cg.construct_type('main', parsed)
-    overrides.update(overrides_)
+    overrides = overrides.update(overrides_)
     assert overrides == {}
     python_src, __ = cg.codegen_py(struct, overrides, False)
     assert python_src == "class Main(NamedTuple):\n    ...\n\n"
@@ -33,7 +34,7 @@ def test_type_with_unclarified_list():
         x: Sequence
         y: List
 
-    mk_main, dict_main = p.type_constructor(X)
+    mk_main, dict_main = p.type_constructor ^ X
     x = mk_main({'x': [], 'y': []})
     x = mk_main({'x': [1], 'y': ['1']})
     assert x.x[0] == int(x.y[0])
@@ -48,8 +49,8 @@ def test_primitives_strictness():
         c: float
         d: bool
 
-    mk_x, dict_x = p.type_constructor(X)
-    mk_x_nonstrict, dict_x_nonstrict = p.type_constructor(X, overrides={flags.NON_STRICT_PRIMITIVES: True})
+    mk_x, dict_x = p.type_constructor ^ X
+    mk_x_nonstrict, dict_x_nonstrict = p.type_constructor & flags.NON_STRICT_PRIMITIVES ^ X
 
     data = {
         'a': '1',
@@ -89,7 +90,7 @@ def test_serialize_list():
     class X(NamedTuple):
         x: Union[None, Sequence[str]]
 
-    mk_x, dict_x = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor ^ X
     data = {
         'x': ['str'],
     }
@@ -110,7 +111,7 @@ def test_serialize_union_lists():
     class X(NamedTuple):
         x: Union[Sequence[str], Sequence[float], Sequence[int]]
 
-    mk_x, dict_x = p.type_constructor(X)
+    mk_x, dict_x = p.type_constructor ^ X
     data = {
         'x': [1],
     }
@@ -311,6 +312,11 @@ def test_type_with_set():
     assert x.d == x.h
 
 
+def test_schema_node():
+    x = schema.SchemaNode(schema.primitives.Int())
+    assert x.__repr__().startswith('SchemaNode(<typeit.schema.primitives.Int ')
+
+
 def test_type_with_dict():
     """ Create a type with an explicit dictionary value
     that can hold any kv pairs
@@ -336,7 +342,7 @@ def test_parser_github_pull_request_payload():
     github_pr_dict = json.loads(data)
     parsed, overrides = cg.parse(github_pr_dict)
     typ, overrides_ = cg.construct_type('main', parsed)
-    overrides.update(overrides_)
+    overrides = overrides.update(overrides_)
 
     python_source, __ = cg.codegen_py(typ, overrides)
     assert 'overrides' in python_source
@@ -356,11 +362,27 @@ def test_parser_github_pull_request_payload():
     assert github_pr_dict == serializer(github_pr)
 
 
+def test_name_overrides():
+    class X(NamedTuple):
+        x: int
+
+    data = {'my-x': 1}
+
+    with pytest.raises(colander.Invalid):
+        mk_x, dict_x = p.type_constructor ^ X
+        mk_x(data)
+
+    mk_x, dict_x = p.type_constructor & {X.x: 'my-x'} ^ X
+    x = mk_x(data)
+    assert dict_x(x) == data
+
+
+
 def test_extending():
     class X(NamedTuple):
         x: Money
 
-    class MoneySchema(colander.Tuple):
+    class MoneySchema(schema.Tuple):
         def deserialize(self, node, cstruct):
             r = super().deserialize(node, cstruct)
             if r in (colander.null, None):
@@ -384,23 +406,15 @@ def test_extending():
             r = (appstruct.currency, appstruct.amount)
             return super().serialize(node, r)
 
-    schema_node = colander.SchemaNode(
-        MoneySchema()
-    )
-    schema_node.children = [
-        colander.SchemaNode(colander.Enum(Currency)),
-        colander.SchemaNode(colander.Str()),
-    ]
-
     with pytest.raises(TypeError):
         # type ``Money`` is not defined in overrides
-        mk_x, dict_x = p.type_constructor(X)
+        __ = p.type_constructor ^ X
 
-    mk_x, dict_x = p.type_constructor(X, {
-        Money: p.TypeExtension(
-            schema=schema_node
-        )
-    })
+    mk_x, dict_x = (
+        p.type_constructor
+            & MoneySchema[Money] << schema.Enum(Currency) << schema.primitives.NonStrictStr()
+            ^ X
+    )
 
     serialized = {
         'x': ('GBP', '10')

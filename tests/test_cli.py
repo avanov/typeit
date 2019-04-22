@@ -19,5 +19,6 @@ def test_cli(stdin_data):
                 m_stdin.read.return_value = stdin_data
                 main(['gen'])
                 m_exit.assert_called_once_with(0)
-                test_str = 'mk_main, dict_main = type_constructor(Main)'
-                assert test_str in str(m_stdout.write.mock_calls[0])
+                test_str = 'mk_main, dict_main = type_constructor ^ Main'
+                code_snippet = str(m_stdout.write.mock_calls[0][1][0])
+                assert test_str in code_snippet

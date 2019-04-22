@@ -2,16 +2,19 @@ from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
     Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping)
+    MutableSet, TypeVar, FrozenSet, Mapping
+)
 import collections
 
 import colander as col
 import typing_inspect as insp
+from pyrsistent import pmap
 
-from .definitions import OverridesT, TypeExtension
+from .definitions import OverridesT, NO_OVERRIDES, OverrideT
 from . import flags
 from . import schema
 from . import interface as iface
+
 
 T = TypeVar('T')
 
@@ -270,7 +273,7 @@ def _maybe_node_for_overridden(
     overrides: OverridesT
 ):
     if typ in overrides:
-        override: TypeExtension = overrides[typ]
+        override: schema.TypeExtension = overrides[typ]
         return override.schema
     return None
 
@@ -323,20 +326,36 @@ TypeTools = Tuple[
 ]
 
 
-def type_constructor(
-    typ: Type[T],
-    overrides: OverridesT = None
-) -> TypeTools:
-    """ Generate a constructor and a serializer for the given type
+class _TypeConstructor:
+    def __init__(self, overrides: Union[Dict, OverridesT] = NO_OVERRIDES):
+        self.overrides = pmap(overrides)
 
-    :param overrides: a mapping of type_field => serialized_field_name.
-    """
-    if overrides is None:
-        overrides = {}
+    def __call__(self,
+        typ: Type[T],
+        overrides: OverridesT = NO_OVERRIDES
+    ) -> TypeTools:
+        """ Generate a constructor and a serializer for the given type
 
-    schema_node = _node_for_type(typ, overrides)
-    if not schema_node:
-        raise TypeError(
-            f'Cannot create a type constructor for {typ}'
-        )
-    return schema_node.deserialize, schema_node.serialize
+        :param overrides: a mapping of type_field => serialized_field_name.
+        """
+        schema_node = _node_for_type(typ, overrides)
+        if not schema_node:
+            raise TypeError(
+                f'Cannot create a type constructor for {typ}'
+            )
+        return schema_node.deserialize, schema_node.serialize
+
+    def __and__(self, override: OverrideT) -> '_TypeConstructor':
+        if isinstance(override, flags._Flag):
+            overrides = self.overrides.set(override, True)
+        elif isinstance(override, schema.TypeExtension):
+            overrides = self.overrides.set(override.typ, override)
+        else:
+            overrides = self.overrides.update(override)
+        return self.__class__(overrides=overrides)
+
+    def __xor__(self, typ: Type[T]) -> TypeTools:
+        return self.__call__(typ, self.overrides)
+
+
+type_constructor = _TypeConstructor()
