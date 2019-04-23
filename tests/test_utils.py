@@ -41,5 +41,5 @@ def test_iter_invalid_data():
     try:
         x = mk_x(data)
     except typeit.Invalid as e:
-        for inv in utils.iter_invalid_data(e, data):
+        for inv in utils.iter_invalid(e, data):
             assert isinstance(inv, utils.InvalidData)

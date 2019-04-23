@@ -9,6 +9,7 @@ import collections
 import colander as col
 import typing_inspect as insp
 from pyrsistent import pmap
+from pyrsistent import typing as pyt
 
 from .definitions import OverridesT, NO_OVERRIDES
 from . import flags
@@ -134,12 +135,14 @@ def _maybe_node_for_list(
     overrides: OverridesT,
     supported_type=frozenset({
         collections.abc.Sequence,
+        pyt.PVector,
     }),
     supported_origin=frozenset({
         List,
         Sequence,
         collections.abc.Sequence,
         list,
+        pyt.PVector,
     })
 ) -> Optional[col.SequenceSchema]:
     # typ is List[T] where T is either unknown Any or a concrete type
@@ -152,7 +155,11 @@ def _maybe_node_for_list(
             # Python 3.6 will have empty inner type,
             # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
-        return col.SequenceSchema(decide_node_type(inner, overrides))
+        if pyt.PVector in (typ, insp.get_origin(typ)):
+            seq_type = schema.nodes.PVectorSchema
+        else:
+            seq_type = col.SequenceSchema
+        return seq_type(decide_node_type(inner, overrides))
     return None
 
 
@@ -229,12 +236,14 @@ def _maybe_node_for_dict(
     overrides: OverridesT,
     supported_type=frozenset({
         collections.abc.Mapping,
+        pyt.PMap,
     }),
     supported_origin=frozenset({
         Dict,
         dict,
         collections.abc.Mapping,
         Mapping,  # py3.6
+        pyt.PMap,
     })
 ) -> Optional[schema.nodes.SchemaNode]:
     """ This is mainly for cases when a user has manually
@@ -244,7 +253,11 @@ def _maybe_node_for_dict(
     set of possible attributes).
     """
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
-        return schema.nodes.SchemaNode(col.Mapping(unknown='preserve'))
+        if pyt.PMap in (typ, insp.get_origin(typ)):
+            map_type = schema.nodes.PMapSchema
+        else:
+            map_type = schema.nodes.DictSchema
+        return map_type()
     return None
 
 
