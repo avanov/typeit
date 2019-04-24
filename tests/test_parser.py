@@ -7,6 +7,7 @@ import pytest
 from money.currency import Currency
 from money.money import Money
 
+import typeit
 from typeit import codegen as cg
 from typeit import parser as p
 from typeit import flags
@@ -66,10 +67,10 @@ def test_primitives_strictness():
         d=1,
     )
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         mk_x(data)
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         dict_x(data_X)
 
     assert mk_x_nonstrict(data) == X(
@@ -154,7 +155,7 @@ def test_type_with_tuple_primitives():
     assert x.b == ()
     assert x.b == x.c
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         # 'abc' is not int
         x = mk_x({
             'a': ['value', 'abc'],
@@ -162,14 +163,14 @@ def test_type_with_tuple_primitives():
             'c': [],
         })
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         # .c field is required
         x = mk_x({
             'a': ['value', 5],
             'b': [],
         })
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         # .c field is required to be fixed sequence
         x = mk_x({
             'a': ['value', 'abc'],
@@ -238,7 +239,7 @@ def test_enum_like_types():
     assert isinstance(x.s('value'), Sums)
     assert data == dict_x(x)
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         x = mk_x({'e': 'a', 's': None})
 
 
@@ -278,7 +279,7 @@ def test_type_with_empty_enum_variant():
         x = mk_x({'x': 1, 'y': variant.value})
         assert x.y is variant
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         x = mk_x({'x': 1, 'y': None})
 
 
@@ -313,7 +314,7 @@ def test_type_with_set():
 
 
 def test_schema_node():
-    x = schema.SchemaNode(schema.primitives.Int())
+    x = schema.nodes.SchemaNode(schema.primitives.Int())
     assert x.__repr__().startswith('SchemaNode(<typeit.schema.primitives.Int ')
 
 
@@ -327,10 +328,10 @@ def test_type_with_dict():
 
     mk_x, serializer = p.type_constructor(X)
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         mk_x({})
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         mk_x({'x': 1})
 
     x = mk_x({'x': 1, 'y': {'x': 1}})
@@ -368,7 +369,7 @@ def test_name_overrides():
 
     data = {'my-x': 1}
 
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         mk_x, dict_x = p.type_constructor ^ X
         mk_x(data)
 
@@ -382,7 +383,7 @@ def test_extending():
     class X(NamedTuple):
         x: Money
 
-    class MoneySchema(schema.Tuple):
+    class MoneySchema(schema.types.Tuple):
         def deserialize(self, node, cstruct):
             r = super().deserialize(node, cstruct)
             if r in (colander.null, None):
@@ -390,12 +391,12 @@ def test_extending():
             try:
                 currency = Currency(r[0])
             except ValueError:
-                raise colander.Invalid(node, f'Invalid currency token in {r}', cstruct)
+                raise typeit.Invalid(node, f'Invalid currency token in {r}', cstruct)
 
             try:
                 rv = Money(r[1], currency)
             except:
-                raise colander.Invalid(node, f'Invalid amount in {r}', cstruct)
+                raise typeit.Invalid(node, f'Invalid amount in {r}', cstruct)
 
             return rv
 
@@ -412,7 +413,7 @@ def test_extending():
 
     mk_x, dict_x = (
         p.type_constructor
-            & MoneySchema[Money] << schema.Enum(Currency) << schema.primitives.NonStrictStr()
+            & MoneySchema[Money] << schema.types.Enum(Currency) << schema.primitives.NonStrictStr()
             ^ X
     )
 

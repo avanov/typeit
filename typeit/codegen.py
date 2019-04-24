@@ -140,7 +140,7 @@ def literal_for_type(typ: Type[iface.IType]) -> str:
     try:
         return BUILTIN_LITERALS_FOR_TYPES[typ](typ)
     except KeyError:
-        if typ.__class__ is List.__class__:
+        if typ.__class__ is List.__class__:  # type: ignore
             sub_type = literal_for_type(typ.__args__[0])
             return f'List[{sub_type}]'
         # typ: NamedTuple
@@ -265,7 +265,7 @@ FIELD_TYPE_CLARIFIERS: Mapping[Type, ClarifierCallableT] = {
 
 
 def construct_type(name: str,
-                   fields: List[FieldDefinition]) -> Tuple[Type[iface.IType], OverridesT]:
+                   fields: List[FieldDefinition]) -> Tuple[Type, OverridesT]:
     """ Generates a NamedTuple type structure out of provided
     field definitions.
 
@@ -282,8 +282,8 @@ def construct_type(name: str,
         if c.field_name != c.source_name:
             overrides[c.field_name] = c.source_name
 
-    typ = NamedTuple(inflection.camelize(name), type_fields)
-    type_overrides = pmap({
+    typ = NamedTuple(inflection.camelize(name), type_fields)  # type: ignore
+    type_overrides: PMap[property, str] = pmap({
         getattr(typ, k): v for k, v in overrides.items()
     })
-    return typ, type_overrides
+    return typ, type_overrides  # type: ignore

@@ -1,3 +1,4 @@
+from pyrsistent import pvector, pmap
 import colander as col
 
 
@@ -7,3 +8,39 @@ class SchemaNode(col.SchemaNode):
     """
     def __repr__(self) -> str:
         return f'SchemaNode({self.typ})'
+
+
+class DictSchema(SchemaNode):
+    @staticmethod
+    def schema_type():
+        return col.Mapping(unknown='preserve')
+
+
+class SetSchema(col.SequenceSchema):
+    def __init__(self, *args, frozen=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.frozen = frozen
+
+    def deserialize(self, *args, **kwargs):
+        r = super().deserialize(*args, **kwargs)
+        if r in (col.null, None):
+            return r
+        if self.frozen:
+            return frozenset(r)
+        return set(r)
+
+
+class PVectorSchema(col.SequenceSchema):
+    def deserialize(self, *args, **kwargs):
+        r = super().deserialize(*args, **kwargs)
+        if r in (col.null, None):
+            return r
+        return pvector(r)
+
+
+class PMapSchema(DictSchema):
+    def deserialize(self, *args, **kwargs):
+        r = super().deserialize(*args, **kwargs)
+        if r in (col.null, None):
+            return r
+        return pmap(r)

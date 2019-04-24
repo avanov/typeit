@@ -1,8 +1,9 @@
-from typing import NamedTuple, Union, Mapping, Any, Dict
+from typing import NamedTuple, Union, Any, Dict
 
 import colander
 import pytest
 
+import typeit
 from typeit import type_constructor, parser as p, flags
 from typeit.compat import PY36
 
@@ -31,7 +32,7 @@ def test_type_with_unions():
     assert data == dict_x(x)
 
     assert mk_x({'x': None, 'y': 'y'}) == mk_x({'y': 'y'})
-    with pytest.raises(colander.Invalid):
+    with pytest.raises(typeit.Invalid):
         # this is not the same as mk_x({}),
         # the empty structure is passed as attribute x,
         # which should match with only an empty named tuple definition,

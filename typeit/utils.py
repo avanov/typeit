@@ -1,7 +1,8 @@
-from typing import Iterator, NamedTuple, Any, Mapping, Union, Sequence, Optional
 import re
 import keyword
-import colander
+from typing import Iterator, NamedTuple, Any, Mapping, Union, Optional
+
+from .schema.errors import Invalid
 from . import interface as iface
 
 
@@ -25,16 +26,16 @@ def normalize_name(name: str,
     return being_normalized
 
 
-def iter_invalid_data(error: colander.Invalid,
-                      data: Mapping[str, Any]) -> Iterator[InvalidData]:
+def iter_invalid(error: Invalid,
+                 data: Mapping[str, Any]) -> Iterator[InvalidData]:
     """ A helper function to iterate over data samples that
     caused an exception at object construction. Use it like this:
 
     >>> try:
     >>>     obj = mk_obj(data)
-    >>> except colander.Invalid as e:
+    >>> except Invalid as e:
     >>>     # iterate over a sequence of InvalidData
-    >>>     for e in iter_invalid_data(e, data):
+    >>>     for e in iter_invalid(e, data):
     >>>         ...
 
     """

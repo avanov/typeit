@@ -1,8 +1,8 @@
+import typeit
 from typeit import utils
 from typing import NamedTuple, Sequence
 from typeit import type_constructor
 from enum import Enum
-import colander
 
 
 def test_normalization():
@@ -40,6 +40,6 @@ def test_iter_invalid_data():
 
     try:
         x = mk_x(data)
-    except colander.Invalid as e:
-        for inv in utils.iter_invalid_data(e, data):
+    except typeit.Invalid as e:
+        for inv in utils.iter_invalid(e, data):
             assert isinstance(inv, utils.InvalidData)
