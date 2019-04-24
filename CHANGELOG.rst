@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+0.12.0
+============
+
+* ``typeit.iter_invalid`` replaces ``typeit.utils.iter_invalid_data``.
+* Add support for ``pyrsistent.typing.PVector`` and ``pyrsistent.typing.PMap`` types.
+* Add support for ``Literals``.
+
 0.11.0
 ============
 
