@@ -77,7 +77,7 @@ class SumTypeMetaclass(type):
                                 "    X: str = 'x'\n")
 
             constructor = t_insp.get_args(
-                variant_constructors[attr_name]
+                variant_constructors[attr_name], evaluate=True,
             )[0]
             variant = object.__new__(sum_cls)
             variant.__init__(
@@ -102,7 +102,7 @@ class SumTypeMetaclass(type):
             if attr_name in variants:
                 continue
 
-            constructor = t_insp.get_args(constructor)[0]
+            constructor = t_insp.get_args(constructor, evaluate=True)[0]
             value = attr_name.lower()
             variant = object.__new__(sum_cls)
             variant.__init__(

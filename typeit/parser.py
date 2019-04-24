@@ -2,8 +2,9 @@ from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
     Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping
+    MutableSet, TypeVar, FrozenSet, Mapping,
 )
+from typing_extensions import Literal
 import collections
 
 import colander as col
@@ -12,6 +13,7 @@ from pyrsistent import pmap
 from pyrsistent import typing as pyt
 
 from .definitions import OverridesT, NO_OVERRIDES
+from . import compat
 from . import flags
 from . import schema
 from .schema.meta import TypeExtension
@@ -28,6 +30,10 @@ OverrideT = Union[
     TypeExtension,
     Mapping[property, str],
 ]
+
+
+def inner_type_boundaries(typ: Type) -> Tuple:
+    return insp.get_args(typ, evaluate=True)
 
 
 def _maybe_node_for_primitive(
@@ -95,7 +101,7 @@ def _maybe_node_for_union(
     """
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         NoneClass = None.__class__
-        variants = insp.get_args(typ, evaluate=True)
+        variants = inner_type_boundaries(typ)
         if variants in ((NoneClass, Any), (Any, NoneClass)):
             # Case for Optional[Any] and Union[None, Any] notations
             return schema.nodes.SchemaNode(
@@ -130,6 +136,32 @@ def _maybe_node_for_union(
     return None
 
 
+def _maybe_node_for_literal(
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({}),
+    supported_origin=frozenset({
+        Literal,
+        insp.get_generic_type(Literal)  # py3.6 fix
+    }),
+    _supported_literal_types=frozenset({
+        bool, int, str, bytes, type(None),
+    })
+) -> Optional[schema.nodes.SchemaNode]:
+    """ Handles cases where typ is a Literal, according to the allowed
+    types: https://mypy.readthedocs.io/en/latest/literal_types.html
+    """
+    if typ in supported_type \
+    or insp.get_origin(typ) in supported_origin \
+    or (compat.PY36 and insp.get_generic_type(typ) in supported_origin):
+        inner = inner_type_boundaries(typ) if not compat.PY36 else typ.__values__
+        for x in inner:
+            if type(x) not in _supported_literal_types:
+                raise TypeError(f'Literals cannot be defined with values of type {type(x)}')
+        return schema.nodes.SchemaNode(schema.types.Literal(frozenset(inner)))
+    return None
+
+
 def _maybe_node_for_list(
     typ: Type[iface.IType],
     overrides: OverridesT,
@@ -148,7 +180,7 @@ def _maybe_node_for_list(
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         try:
-            inner = insp.get_args(typ, evaluate=True)[0]
+            inner = inner_type_boundaries(typ)[0]
         except IndexError:
             # In case of a non-clarified collection
             # (collection without defined item type),
@@ -185,7 +217,7 @@ def _maybe_node_for_set(
     origin = insp.get_origin(typ)
     if typ in supported_type or origin in supported_origin:
         try:
-            inner = insp.get_args(typ, evaluate=True)[0]
+            inner = inner_type_boundaries(typ)[0]
         except IndexError:
             # In case of a non-clarified set (set without defined collection item type),
             # Python 3.6 will have empty inner type,
@@ -212,7 +244,7 @@ def _maybe_node_for_tuple(
     })
 ) -> Optional[col.TupleSchema]:
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
-        inner_types = insp.get_args(typ, evaluate=True)
+        inner_types = inner_type_boundaries(typ)
         if Ellipsis in inner_types:
             raise TypeError(
                 f'You are trying to create a constructor for '
@@ -310,6 +342,7 @@ PARSING_ORDER = [
     _maybe_node_for_tuple,
     _maybe_node_for_dict,
     _maybe_node_for_set,
+    _maybe_node_for_literal,
     _maybe_node_for_subclass_based,
     # at this point it could be a user-defined type,
     # so the parser may do another recursive iteration

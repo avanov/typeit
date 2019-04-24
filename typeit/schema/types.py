@@ -118,11 +118,41 @@ generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = (
 )
 
 
+class Literal(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+    def __init__(self, variants: t.FrozenSet):
+        super().__init__()
+        self.variants = variants
+
+    def deserialize(self, node, cstruct):
+        if cstruct is col.null:
+            # explicitly passed None is not col.null
+            # therefore we must handle it separately
+            return cstruct
+        if cstruct in self.variants:
+            return cstruct
+        raise Invalid(
+            node,
+            'None of the Literal variants matches provided data.',
+            cstruct
+        )
+
+    def serialize(self, node, appstruct: t.Any):
+        if appstruct is col.null:
+            return None
+        if appstruct in self.variants:
+            return appstruct
+        raise Invalid(
+            node,
+            'None of the Literal variants matches provided data.',
+            appstruct
+        )
+
+
 class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
-    """ This node handles Union[T1, T2, ...] cases.
-    Please note that Optional[T] is normalized by parser as Union[None, T],
-    and this UnionNode will not have None among its variants. Instead,
-    `UnionNode.missing` will be set to None, indicating the value for missing
+    """ This node handles typing.Union[T1, T2, ...] cases.
+    Please note that typing.Optional[T] is normalized by parser as typing.Union[None, T],
+    and this Union schema type will not have None among its variants. Instead,
+    `Union.missing` will be set to None, indicating the value for missing
     data.
     """
     def __init__(
@@ -145,12 +175,9 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         }
 
     def deserialize(self, node, cstruct):
-        if cstruct is None:
+        if cstruct in (col.null, None):
             # explicitly passed None is not col.null
-            # therefore we must handle it separately
-            return cstruct
-
-        if cstruct is col.null:
+            # therefore we must handle both
             return cstruct
 
         # Firstly, let's see if `cstruct` is one of the primitive types
@@ -183,7 +210,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided data. ',
+            'None of the variants matches provided data.',
             cstruct
         )
 
@@ -250,7 +277,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided structure. ',
+            'None of the variants matches provided structure.',
             appstruct
         )
 
