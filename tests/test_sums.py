@@ -1,17 +1,16 @@
 import pytest
 import pickle
-from typing import NamedTuple
-from typeit.sums import SumType, Variant
+from typeit.sums import SumType
 
 
 # These types are defined outside test cases
 # because pickle requires classes to be defined in a module scope.
 class X(SumType):
-    VARIANT_A: Variant[str] = 'variant_a'
+    class VARIANT_A(str): ...
 
 
 class Y(SumType):
-    VARIANT_A: Variant[str] = 'variant_a'
+    class VARIANT_A(str): ...
 
 
 def test_enum_like_api():
@@ -38,19 +37,17 @@ def test_enum_like_api():
     assert X(pickle.loads(pickle.dumps(X.VARIANT_A))) is X.VARIANT_A
 
 
-class Z(SumType):
-    A: Variant[str]
-
-    class _BData(NamedTuple):
-        x: str
-        y: int
-        z: float
-
-    B: Variant[_BData]
-    C: Variant[None]
-
-
 def test_sum_variants():
+    class Z(SumType):
+        class A(str): ...
+
+        class B:
+            x: str
+            y: int
+            z: float
+
+        class C: ...
+
     x = Z.A('111')
     y = Z.B(x='1', y=2, z=3.0)
     c = Z.C()
@@ -60,12 +57,17 @@ def test_sum_variants():
     assert isinstance(x, Z)
     assert isinstance(y, Z)
 
-    assert x.value == 'a'
-    assert x.data == '111'
-
-    assert y.data.x == '1'
-    assert y.data.y == 2
-    assert isinstance(y.data.z, float)
-    assert isinstance(y.data, Z._BData)
+    assert y.x == '1'
+    assert y.y == 2
+    assert isinstance(y.z, float)
 
     assert c.data is None
+
+
+def test_sum_variant_subclass_positional():
+    class X(SumType):
+        class A(str): ...
+
+    x = X.A(5)
+    assert type(x) is X
+    assert isinstance(x, X)

@@ -1,19 +1,6 @@
 import logging
 import re
-from typing import Dict, Any, get_type_hints, Type, Iterator, Set, Generic, TypeVar
-from typing_extensions import Protocol
-import typing_inspect as t_insp
-
-
-# Internal type variable used for Type[].
-SVT = TypeVar('SVT', covariant=True, bound=type)
-
-
-class Variant(Protocol, Generic[SVT]):
-    data: SVT
-
-    def __call__(self, *args, **kwargs) -> SVT:
-        ...
+from typing import Dict, Any, get_type_hints, Type, Iterator, Set, NamedTuple
 
 
 log = logging.getLogger(__name__)
@@ -49,77 +36,59 @@ SumType = None
 class SumTypeMetaclass(type):
     """ Metaclass object to be used with the actual SumType implementation.
     """
+    __mcs_call = 0
     def __new__(mcs, class_name: str, bases, attrs: Dict[str, Any]):
         """ This magic method is called when a new SumType class is being defined and parsed.
+
+        :param attrs: all definitions inside a new type scope represented as a key-value map
         """
-        sum_cls = type.__new__(mcs, class_name, bases, attrs)
+        mcs.__mcs_call += 1
+        # type constructor
+        user_defined_sum_class: Type = type.__new__(mcs, class_name, bases, attrs)
+        if mcs.__mcs_call == 1:
+            # the first call finalizes the SumType class itself, an all subsequent
+            # calls are user-defined sum types.
+            return user_defined_sum_class
 
         variants = {}
         variant_values = {}
-        variant_constructors = get_type_hints(sum_cls)
 
-        # 1. Populating variants from long-form definitions:
-        #    class A(SumType):
-        #        B[: type] = value
-        # --------------------------------------------------
-        for attr_name, value in attrs.items():
-            # Populating variants from long-form definitions:
-            # class A(SumType):
-            #     B[: type] = value
-            if not SUM_TYPE_VARIANT_NAME_RE.match(attr_name):
-                continue
-
-            if attr_name not in variant_constructors:
-                raise TypeError(f'SumType Variant "{sum_cls.__module__}::{sum_cls.__name__}::{attr_name}" '
-                                'must have a value constructor. '
-                                'You need to specify it as a type hint. Example:\n'
-                                'class X(SumType):\n'
-                                "    X: str = 'x'\n")
-
-            constructor = t_insp.get_args(
-                variant_constructors[attr_name], evaluate=True,
-            )[0]
-            variant = object.__new__(sum_cls)
-            variant.__init__(
-                variant_of=sum_cls,
-                name=attr_name,
-                constructor=constructor,
-                value=value
-            )
-
-            setattr(sum_cls, attr_name, variant)
-            variants[attr_name] = variant
-            variant_values[value] = attr_name
-
-        # 2. Populating variants from short-form definitions:
+        # 1. Populating variants from short-form definitions:
         #    class A(SumType):
         #        B: type
         # --------------------------------------------------
         # note that the value will be a lower-case version of the variant name
-        for attr_name, constructor in variant_constructors.items():
-            if not SUM_TYPE_VARIANT_NAME_RE.match(attr_name):
+        for variant_name, data_constructor in attrs.items():
+            if not SUM_TYPE_VARIANT_NAME_RE.match(variant_name):
                 continue
-            if attr_name in variants:
+            if variant_name in variants:
                 continue
 
-            constructor = t_insp.get_args(constructor, evaluate=True)[0]
-            value = attr_name.lower()
-            variant = object.__new__(sum_cls)
+            # data constructor
+            data_constructor_hints = get_type_hints(data_constructor)
+            if data_constructor_hints:
+                data_constructor = NamedTuple(variant_name, data_constructor_hints.items())
+            else:
+                data_constructor = data_constructor.__bases__[0]
+
+            value = variant_name.lower()
+            # necessary for ``type(SumType.X) is SumType``
+            variant = object.__new__(user_defined_sum_class)
             variant.__init__(
-                variant_of=sum_cls,
-                name=attr_name,
-                constructor=constructor,
+                variant_of=user_defined_sum_class,
+                name=variant_name,
+                constructor=data_constructor,
                 value=value
             )
 
-            setattr(sum_cls, attr_name, variant)
-            variants[attr_name] = variant
-            variant_values[value] = attr_name
+            setattr(user_defined_sum_class, variant_name, variant)
+            variants[variant_name] = variant
+            variant_values[value] = variant_name
 
-        # 4. Finalize
+        # 2. Finalize
         # --------------------------------------------------
-        sum_cls.__sum_meta__ = SumTypeMetaData(
-            type=sum_cls,
+        user_defined_sum_class.__sum_meta__ = SumTypeMetaData(
+            type=user_defined_sum_class,
             # set of SumType variants
             variants=variants,
             # dict of value => variant mappings
@@ -129,14 +98,14 @@ class SumTypeMetaclass(type):
             matches={v: {} for v in variants}
         )
 
-        # 5. Hacks to mimic Enum interface
+        # 3. Hacks to mimic Enum interface
         # --------------------------------------------------
-        # 5.1 This hack is copied from python's standard enum.Enum implementation:
+        # 3.1 This hack is copied from python's standard enum.Enum implementation:
         # replace any other __new__ with our own (as long as SumType is not None,
         # anyway) -- again, this is to support pickle
         if SumType is not None:
-            sum_cls.__new__ = SumType.__new__
-        return sum_cls
+            user_defined_sum_class.__new__ = SumType.__new__
+        return user_defined_sum_class
 
     # Make the object iterable, similar to the standard enum.Enum
     def __iter__(cls) -> Iterator:
@@ -151,12 +120,6 @@ class SumTypeMetaclass(type):
 
 class SumType(metaclass=SumTypeMetaclass):
     __sum_meta__: SumTypeMetaData = None
-
-    class Mismatch(Exception):
-        pass
-
-    class PatternError(Exception):
-        pass
 
     @classmethod
     def values(cls) -> Set:
@@ -181,11 +144,12 @@ class SumType(metaclass=SumTypeMetaclass):
         self.constructor = constructor
         if data_args or data_kwargs:
             self.data = constructor(*data_args, **data_kwargs)
+            self.__getattribute__ = self.data.__getattribute__
         else:
             self.data = None
 
-    def is_primitive_type(self) -> bool:
-        return self.constructor in (int, str, float, bool)
+    def __getattr__(self, item):
+        return self.__getattribute__(item)
 
     def __call__(self, *data_args, **data_kwargs) -> 'SumType':
         """ Returns a data-holding variant"""

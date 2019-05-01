@@ -12,7 +12,7 @@ from typeit import codegen as cg
 from typeit import parser as p
 from typeit import flags
 from typeit import schema
-from typeit.sums import SumType, Variant
+from typeit.sums import SumType
 
 
 def test_parser_empty_struct():
@@ -223,8 +223,9 @@ def test_enum_like_types():
         B = 'b'
 
     class Sums(SumType):
-        A: Variant[str]
-        B: Variant[str]
+        class A(str): ...
+
+        class B(str): ...
 
     class X(NamedTuple):
         e: Enums
