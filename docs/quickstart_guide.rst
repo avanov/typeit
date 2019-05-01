@@ -4,11 +4,11 @@ Quickstart Guide
 
 .. CAUTION::
 
-    The project is in an early development status, and a few public
+    The project is in a beta development status, and a few public
     APIs may change in a backward-incompatible manner.
 
 
-``typeit`` supports Python 3.7+.
+``typeit`` supports Python 3.6+.
 
 
 Installation
@@ -73,11 +73,19 @@ and rename the whole structure to better indicate the nature of the data:
     }
 
 
-    mk_person, dict_person = type_constructor(Person, overrides)
+    mk_person, dict_person = type_constructor & overrides ^ Person
 
 
 ``typeit`` will handle creation of the constructor ``mk_person :: Dict -> Person`` and the serializer
 ``dict_person :: Person -> Dict`` for you.
+
+``type_constructor & overrides`` produces a new type constructor that takes overrides into consideration,
+and ``type_constructor ^ Person`` reads as "type constructor applied to the Person structure" and essentially
+is the same as ``type_constructor(Person)``, but doesn't require parentheses around overrides (and extensions):
+
+.. code-block:: python
+
+    (type_constructor & overrides & extension & ...)(Person)
 
 
 Overrides
@@ -99,7 +107,7 @@ our ``Person`` type:
     }
 
 
-    mk_person, dict_person = type_constructor(Person, overrides)
+    mk_person, dict_person = type_constructor & overrides ^ Person
 
 
 This is the way we can indicate that our Python structure has different field
@@ -137,5 +145,47 @@ any nested types, for instance:
     }
 
 
-    mk_person, dict_person = type_constructor(Person, overrides)
+    mk_person, dict_person = type_constructor & overrides ^ Person
 
+
+Supported types by default
+--------------------------
+
+* ``bool``
+* ``int``
+* ``float``
+* ``str``
+* ``dict``
+* ``set`` and ``frozenset``
+* ``typing.Any`` passes any value as is
+* ``typing.Union`` including nested structures
+* ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``.
+* ``typing.Set`` and ``typing.FrozenSet``
+* ``typing.Tuple``
+* ``typing.Dict``
+* ``typing.Mapping``
+* ``enum.Enum`` derivatives
+* ``pathlib.Path`` derivatives
+* ``typing_extensions.Literal``
+* ``pyrsistent.typing.PVector``
+* ``pyrsistent.typing.PMap``
+
+
+Flags
+-----
+
+``NON_STRICT_PRIMITIVES`` -
+disables strict checking of primitive types. With this flag, a type constructor for a structure
+with a ``x: int`` attribute annotation would allow input values of ``x`` to be strings that could be parsed
+as integer numbers. Without this flag, the type constructor will reject those values. The same rule is applicable
+to combinations of floats, ints, and bools.
+
+Extensions
+----------
+
+TODO
+
+Handling errors
+---------------
+
+TODO

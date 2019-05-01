@@ -42,7 +42,7 @@ setup(name='typeit',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
-          'Development Status :: 3 - Alpha',
+          'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
           'License :: OSI Approved',
           'License :: OSI Approved :: MIT License',
