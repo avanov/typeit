@@ -10,44 +10,38 @@ SUM_TYPE_VARIANT_NAME_RE = re.compile('^[A-Z][0-9A-Z_]*$')
 
 
 class SumTypeMetaData:
-    __slots__ = ('type', 'variants', 'values', 'matches')
+    __slots__ = ('type', 'variants', 'values')
 
     def __init__(self,
                  type,
                  variants: Dict[str, 'SumType'],
-                 values: Dict[str, str],
-                 matches: Dict[str, Dict[Any, Any]]) -> None:
+                 values: Dict[str, str]) -> None:
         self.type = type
         self.variants = variants
         self.values = values
-        self.matches = matches
-
-
-# This hack is copied from python's standard enum.Enum implementation:
-# ------------
-# Dummy value for SumType as SumTypeMetaclass explicitly checks for it,
-# but of course until SumTypeMetaclass finishes running the first time
-# the SumType class doesn't exist.
-# This is also why there are checks in SumTypeMetaclass like
-# `if SumType is not None`
-SumType = None
 
 
 class SumTypeMetaclass(type):
     """ Metaclass object to be used with the actual SumType implementation.
     """
-    __mcs_call = 0
+    # This hack is copied from python's standard enum.Enum implementation:
+    # ------------
+    # Dummy value for SumType as SumTypeMetaclass explicitly checks for it,
+    # but of course until SumTypeMetaclass finishes running the first time
+    # the SumType class doesn't exist.
+    __sum_type_base = None
+
     def __new__(mcs, class_name: str, bases, attrs: Dict[str, Any]):
         """ This magic method is called when a new SumType class is being defined and parsed.
 
         :param attrs: all definitions inside a new type scope represented as a key-value map
         """
-        mcs.__mcs_call += 1
         # type constructor
         user_defined_sum_class: Type = type.__new__(mcs, class_name, bases, attrs)
-        if mcs.__mcs_call == 1:
+        if mcs.__sum_type_base is None:
             # the first call finalizes the SumType class itself, an all subsequent
             # calls are user-defined sum types.
+            mcs.__sum_type_base = user_defined_sum_class
             return user_defined_sum_class
 
         variants = {}
@@ -58,11 +52,14 @@ class SumTypeMetaclass(type):
         #        B: type
         # --------------------------------------------------
         # note that the value will be a lower-case version of the variant name
-        for variant_name, data_constructor in attrs.items():
-            if not SUM_TYPE_VARIANT_NAME_RE.match(variant_name):
-                continue
+        data_constructors = (
+            x for x in attrs.items()
+            if SUM_TYPE_VARIANT_NAME_RE.match(x[0])
+        )
+
+        for variant_name, data_constructor in data_constructors:
             if variant_name in variants:
-                continue
+                raise TypeError(f'Variant {variant_name} is already defined for {class_name}')
 
             # data constructor
             data_constructor_hints = get_type_hints(data_constructor)
@@ -74,12 +71,10 @@ class SumTypeMetaclass(type):
             value = variant_name.lower()
             # necessary for ``type(SumType.X) is SumType``
             variant = object.__new__(user_defined_sum_class)
-            variant.__init__(
-                variant_of=user_defined_sum_class,
-                name=variant_name,
-                constructor=data_constructor,
-                value=value
-            )
+            variant.variant_of = user_defined_sum_class
+            variant.name = variant_name
+            variant.constructor = data_constructor
+            variant.value = value
 
             setattr(user_defined_sum_class, variant_name, variant)
             variants[variant_name] = variant
@@ -92,10 +87,7 @@ class SumTypeMetaclass(type):
             # set of SumType variants
             variants=variants,
             # dict of value => variant mappings
-            values=variant_values,
-            # dict of value => match instances.
-            # Used by .match() for O(1) result retrieval
-            matches={v: {} for v in variants}
+            values=variant_values
         )
 
         # 3. Hacks to mimic Enum interface
@@ -103,8 +95,7 @@ class SumTypeMetaclass(type):
         # 3.1 This hack is copied from python's standard enum.Enum implementation:
         # replace any other __new__ with our own (as long as SumType is not None,
         # anyway) -- again, this is to support pickle
-        if SumType is not None:
-            user_defined_sum_class.__new__ = SumType.__new__
+        user_defined_sum_class.__new__ = mcs.__sum_type_base.__new__
         return user_defined_sum_class
 
     # Make the object iterable, similar to the standard enum.Enum
@@ -121,12 +112,15 @@ class SumTypeMetaclass(type):
 class SumType(metaclass=SumTypeMetaclass):
     __sum_meta__: SumTypeMetaData = None
 
+    def __instancecheck__(self, other) -> bool:
+        return self.variant_of is other.variant_of and self.name == other.name
+
     @classmethod
     def values(cls) -> Set:
         return set(cls.__sum_meta__.values.keys())
 
     def __init__(self,
-                 variant_of: Type['SumType'],
+                 variant_of,
                  name: str,
                  constructor,
                  value,
@@ -140,20 +134,19 @@ class SumType(metaclass=SumTypeMetaclass):
         """
         self.variant_of = variant_of
         self.name = name
-        self.value = value
-        self.constructor = constructor
         if data_args or data_kwargs:
             self.data = constructor(*data_args, **data_kwargs)
             self.__getattribute__ = self.data.__getattribute__
         else:
             self.data = None
+        self.initialized = True
 
     def __getattr__(self, item):
         return self.__getattribute__(item)
 
     def __call__(self, *data_args, **data_kwargs) -> 'SumType':
         """ Returns a data-holding variant"""
-        instance = object.__new__(self.__class__)
+        instance = object.__new__(self.__sum_meta__.type)
         instance.__init__(
             variant_of=self.variant_of,
             name=self.name,

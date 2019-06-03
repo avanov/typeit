@@ -9,13 +9,12 @@ class X(SumType):
     class VARIANT_A(str): ...
 
 
-class Y(SumType):
-    class VARIANT_A(str): ...
-
-
 def test_enum_like_api():
     """ SumType should support the same usage patterns as Enum.
     """
+    class Y(SumType):
+        class VARIANT_A(str): ...
+
     assert X.VARIANT_A != Y.VARIANT_A
     assert X.VARIANT_A is not Y.VARIANT_A
 
@@ -35,6 +34,19 @@ def test_enum_like_api():
     assert isinstance(X.VARIANT_A, X)
 
     assert X(pickle.loads(pickle.dumps(X.VARIANT_A))) is X.VARIANT_A
+
+
+def test_sum_variant_data_is_typed():
+    class X(SumType):
+        class VARIANT_A(str): ...
+
+        class VARIANT_B(str): ...
+
+    assert X.VARIANT_A is not X
+    a_inst = X.VARIANT_A('111')
+    assert isinstance(a_inst, X)
+    assert isinstance(a_inst, X.VARIANT_A)
+    assert not isinstance(a_inst, X.VARIANT_B)
 
 
 def test_sum_variants():
