@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pytest
 import pickle
 from typeit.sums import SumType
@@ -73,13 +75,55 @@ def test_sum_variants():
     assert y.y == 2
     assert isinstance(y.z, float)
 
-    assert c.data is None
-
 
 def test_sum_variant_subclass_positional():
     class X(SumType):
         class A(str): ...
 
+        B: str
+
     x = X.A(5)
     assert type(x) is X
     assert isinstance(x, X)
+    assert isinstance(x, X.A)
+
+
+def test_generic_either():
+    class Either(SumType):
+        class Left: ...
+
+        class Right: ...
+
+    # User-defined Sums should adhere base Sum
+    with pytest.raises(TypeError):
+        class BrokenEither(Either):
+            class Left: ...
+
+
+    class ServiceResponse(Either):
+        class Left:
+            errmsg: str
+
+        class Right:
+            payload: Dict
+
+    x = ServiceResponse.Left(errmsg='Error')
+    y = ServiceResponse.Right(payload={'success': True})
+    assert type(x) is ServiceResponse
+    assert isinstance(x, ServiceResponse)
+    assert isinstance(x, ServiceResponse.Left)
+    assert isinstance(x, Either)
+    assert not isinstance(x, Either.Left)
+
+    class AlternativeEither(SumType):
+        class Left: ...
+
+        class Right: ...
+
+    assert not isinstance(x, AlternativeEither)
+    assert not isinstance(x, int)
+
+    assert x.errmsg == 'Error'
+    assert y.payload == {'success': True}
+
+

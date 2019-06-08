@@ -16,6 +16,7 @@ from .definitions import OverridesT, NO_OVERRIDES
 from . import compat
 from . import flags
 from . import schema
+from . import sums
 from .schema.meta import TypeExtension
 from . import interface as iface
 
@@ -133,6 +134,25 @@ def _maybe_node_for_union(
             union_node.missing = None
         return union_node
 
+    return None
+
+
+def _maybe_node_for_sum_type(
+    typ: Type[iface.IType],
+    overrides: OverridesT,
+    supported_type=frozenset({}),
+    supported_origin=frozenset({})
+) -> Optional[schema.nodes.SchemaNode]:
+    if issubclass(typ, sums.SumType):
+        # represents a 2-tuple of (type_from_signature, associated_schema_node)
+        variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
+        for variant in typ:
+            node = decide_node_type(variant.__variant_meta__.constructor, overrides)
+            variant_nodes.append((variant, node))
+        sum_node = schema.nodes.SchemaNode(
+            schema.types.Sum(typ=typ, variant_nodes=variant_nodes)
+        )
+        return sum_node
     return None
 
 
@@ -333,22 +353,21 @@ def _maybe_node_for_overridden(
     return None
 
 
-PARSING_ORDER = [
-    _maybe_node_for_overridden,
-    _maybe_node_for_primitive,
-    _maybe_node_for_type_var,
-    _maybe_node_for_union,
-    _maybe_node_for_list,
-    _maybe_node_for_tuple,
-    _maybe_node_for_dict,
-    _maybe_node_for_set,
-    _maybe_node_for_literal,
-    _maybe_node_for_subclass_based,
-    # at this point it could be a user-defined type,
-    # so the parser may do another recursive iteration
-    # through the same plan
-    _node_for_type,
-]
+PARSING_ORDER = [ _maybe_node_for_overridden
+                , _maybe_node_for_primitive
+                , _maybe_node_for_type_var
+                , _maybe_node_for_union
+                , _maybe_node_for_list
+                , _maybe_node_for_tuple
+                , _maybe_node_for_dict
+                , _maybe_node_for_set
+                , _maybe_node_for_literal
+                , _maybe_node_for_sum_type
+                , _maybe_node_for_subclass_based
+                # at this point it could be a user-defined type,
+                # so the parser may do another recursive iteration
+                # through the same plan
+                , _node_for_type ]
 
 
 def decide_node_type(
@@ -376,10 +395,8 @@ def decide_node_type(
     )
 
 
-TypeTools = Tuple[
-    Callable[[Dict[str, Any]], T],
-    Callable[[T], Union[List, Dict]]
-]
+TypeTools = Tuple[ Callable[[Dict[str, Any]], T]
+                 , Callable[[T], Union[List, Dict]] ]
 
 
 class _TypeConstructor:

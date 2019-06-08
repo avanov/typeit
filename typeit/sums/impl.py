@@ -1,12 +1,8 @@
-import logging
 import re
 from typing import Dict, Any, get_type_hints, Type, Iterator, Set, NamedTuple
 
 
-log = logging.getLogger(__name__)
-
-
-SUM_TYPE_VARIANT_NAME_RE = re.compile('^[A-Z][0-9A-Z_]*$')
+SUM_TYPE_VARIANT_NAME_RE = re.compile('^[A-Z][0-9A-Za-z_]*$')
 
 
 class SumTypeMetaData:
@@ -19,6 +15,13 @@ class SumTypeMetaData:
         self.type = type
         self.variants = variants
         self.values = values
+
+
+class VariantMeta(NamedTuple):
+     variant_of: Any
+     variant_name: Any
+     constructor: Any
+     value: Any
 
 
 class SumTypeMetaclass(type):
@@ -44,6 +47,7 @@ class SumTypeMetaclass(type):
             mcs.__sum_type_base = user_defined_sum_class
             return user_defined_sum_class
 
+        is_user_defined_base = mcs.__sum_type_base not in bases
         variants = {}
         variant_values = {}
 
@@ -67,18 +71,27 @@ class SumTypeMetaclass(type):
                 data_constructor = NamedTuple(variant_name, data_constructor_hints.items())
             else:
                 data_constructor = data_constructor.__bases__[0]
+                if data_constructor is object:
+                    data_constructor = NamedTuple(variant_name, ())
 
             value = variant_name.lower()
             # necessary for ``type(SumType.X) is SumType``
             variant = object.__new__(user_defined_sum_class)
-            variant.variant_of = user_defined_sum_class
-            variant.name = variant_name
-            variant.constructor = data_constructor
-            variant.value = value
+            variant.__init__(
+                variant_meta=VariantMeta(
+                    variant_of=user_defined_sum_class,
+                    variant_name=variant_name,
+                    constructor=data_constructor,
+                    value=value,
+                )
+            )
 
             setattr(user_defined_sum_class, variant_name, variant)
             variants[variant_name] = variant
             variant_values[value] = variant_name
+
+        if is_user_defined_base:
+            verify_consistency(bases[0].__sum_meta__.variants, variants)
 
         # 2. Finalize
         # --------------------------------------------------
@@ -113,17 +126,17 @@ class SumType(metaclass=SumTypeMetaclass):
     __sum_meta__: SumTypeMetaData = None
 
     def __instancecheck__(self, other) -> bool:
-        return self.variant_of is other.variant_of and self.name == other.name
+        try:
+            return self.__variant_meta__ is other.__variant_meta__
+        except AttributeError:
+            return False
 
     @classmethod
     def values(cls) -> Set:
         return set(cls.__sum_meta__.values.keys())
 
     def __init__(self,
-                 variant_of,
-                 name: str,
-                 constructor,
-                 value,
+                 variant_meta: VariantMeta,
                  data_args=None,
                  data_kwargs=None) -> None:
         """
@@ -132,14 +145,10 @@ class SumType(metaclass=SumTypeMetaclass):
         :param value: variant value
         :param constructor: constructor for a data that this variant can hold
         """
-        self.variant_of = variant_of
-        self.name = name
+        self.__variant_meta__ = variant_meta
         if data_args or data_kwargs:
-            self.data = constructor(*data_args, **data_kwargs)
-            self.__getattribute__ = self.data.__getattribute__
-        else:
-            self.data = None
-        self.initialized = True
+            data = variant_meta.constructor(*data_args, **data_kwargs)
+            self.__getattribute__ = data.__getattribute__
 
     def __getattr__(self, item):
         return self.__getattribute__(item)
@@ -148,10 +157,7 @@ class SumType(metaclass=SumTypeMetaclass):
         """ Returns a data-holding variant"""
         instance = object.__new__(self.__sum_meta__.type)
         instance.__init__(
-            variant_of=self.variant_of,
-            name=self.name,
-            constructor=self.constructor,
-            value=self.value,
+            variant_meta=self.__variant_meta__,
             data_args=data_args,
             data_kwargs=data_kwargs,
         )
@@ -161,12 +167,10 @@ class SumType(metaclass=SumTypeMetaclass):
         """ This method is redefined only to simplify variant comparison for tests with mocks that
         might do things like mocked_function.assert_called_with(SumType.VARIANT)
         """
-        return all([
-            self.variant_of is other.variant_of,
-            self.name == other.name,
-            self.value == other.value,
-            self.constructor == other.constructor
-        ])
+        try:
+            return self.__variant_meta__ == other.__variant_meta__
+        except AttributeError:
+            return False
 
     # https://docs.python.org/3/reference/datamodel.html#object.__hash__
     # If a class that overrides __eq__() needs to retain the implementation of __hash__() from a parent class,
@@ -175,8 +179,9 @@ class SumType(metaclass=SumTypeMetaclass):
 
     def __repr__(self) -> str:
         return (
-            f'SumType(type={self.variant_of.__module__}.{self.variant_of.__name__}, '
-            f'name={self.name}, value={self.value})'
+            f'SumType(type={self.__variant_meta__.variant_of.__module__}.'
+            f'{self.__variant_meta__.variant_of.__name__}, '
+            f'name={self.__variant_meta__.variant_name}'
         )
 
     def __new__(cls, value):
@@ -206,4 +211,20 @@ class SumType(metaclass=SumTypeMetaclass):
         """ Support pickling.
         https://docs.python.org/3.7/library/pickle.html#object.__reduce_ex__
         """
-        return self.__class__, (self.value, )
+        return self.__class__, (self.__variant_meta__.value, )
+
+
+def verify_consistency(base_variants, variants):
+    if len(base_variants) != len(variants):
+        raise TypeError()
+
+    for base_variant, variant in zip(base_variants.values(), variants.values()):
+        fst = base_variant.__variant_meta__._asdict()
+        snd = variant.__variant_meta__._asdict()
+        _ = [(x.pop('constructor'), x.pop('variant_of')) for x in (fst, snd)]
+        if fst != snd:
+            raise TypeError()
+
+
+def compare_attrs(attrs, fst, snd):
+    return all(getattr(fst, attr) == getattr(snd, attr) for attr in attrs)

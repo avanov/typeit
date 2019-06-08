@@ -12,7 +12,7 @@ from typeit import codegen as cg
 from typeit import parser as p
 from typeit import flags
 from typeit import schema
-from typeit.sums import SumType
+from typeit.sums import SumType, Either
 
 
 def test_parser_empty_struct():
@@ -222,26 +222,71 @@ def test_enum_like_types():
         A = 'a'
         B = 'b'
 
-    class Sums(SumType):
-        class A(str): ...
-
-        class B(str): ...
-
     class X(NamedTuple):
         e: Enums
-        s: Sums
 
     mk_x, dict_x = p.type_constructor(X)
 
-    data = {'e': 'a', 's': 'b'}
+    data = {'e': 'a'}
     x = mk_x(data)
     assert isinstance(x.e, Enums)
-    assert isinstance(x.s, Sums)
-    assert isinstance(x.s('value'), Sums)
     assert data == dict_x(x)
 
     with pytest.raises(typeit.Invalid):
-        x = mk_x({'e': 'a', 's': None})
+        x = mk_x({'e': None})
+
+
+def test_sum_types_as_union():
+    class Data(NamedTuple):
+        value: str
+
+    class MyEither(Either):
+        class Left:
+            err: str
+
+        class Right:
+            data: Data
+            version: str
+            name: str
+
+    class X(NamedTuple):
+        x: MyEither
+
+    mk_x, dict_x = p.type_constructor ^ X
+    x_data = {
+        'x': ('left', {'err': 'Error'})
+    }
+    x = mk_x(x_data)
+    assert isinstance(x.x, Either)
+    assert isinstance(x.x, MyEither)
+    assert isinstance(x.x, MyEither.Left)
+    assert not isinstance(x.x, Either.Left)
+    assert not isinstance(x.x, Either.Right)
+    assert not isinstance(x.x, MyEither.Right)
+    assert isinstance(x.x.err, str)
+    assert x.x.err == 'Error'
+    assert dict_x(x) == x_data
+
+    x_data = {
+        'x': ('right', {
+            'data': {'value': 'Value'},
+            'version': '1',
+            'name': 'Name',
+        })
+    }
+    x = mk_x(x_data)
+    assert isinstance(x.x, Either)
+    assert isinstance(x.x, MyEither)
+    assert isinstance(x.x, MyEither.Right)
+    assert not isinstance(x.x, Either.Right)
+    assert not isinstance(x.x, Either.Left)
+    assert not isinstance(x.x, MyEither.Left)
+    assert isinstance(x.x.data, Data)
+    assert isinstance(x.x.version, str)
+    assert x.x.data == Data(value='Value')
+    assert x.x.version == '1'
+    assert x.x.name == 'Name'
+    assert dict_x(x) == x_data
 
 
 def test_enum_unions_serialization():
@@ -377,7 +422,6 @@ def test_name_overrides():
     mk_x, dict_x = p.type_constructor & {X.x: 'my-x'} ^ X
     x = mk_x(data)
     assert dict_x(x) == data
-
 
 
 def test_extending():
