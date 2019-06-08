@@ -1,6 +1,6 @@
 -r ./minimal.txt
-pytest==4.4.1
+pytest>=4.6.1,<4.7
 coverage==4.5.3
-pytest-cov==2.6.1
+pytest-cov>=2.7.1,<2.8
 mypy==0.701
 py-money==0.4.0

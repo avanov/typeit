@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.12.1
+============
+
+* Experimental support for SumType.
+
+
 0.12.0
 ============
 

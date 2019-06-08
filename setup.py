@@ -38,11 +38,11 @@ with (here / 'README.rst').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.12.0',
+      version='0.12.1',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
-          'Development Status :: 3 - Alpha',
+          'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
           'License :: OSI Approved',
           'License :: OSI Approved :: MIT License',

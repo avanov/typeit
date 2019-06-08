@@ -19,7 +19,7 @@
     :alt: Latest PyPI Release
 
 
-**Development status: Alpha**
+**Development status: Beta**
 
 Typeit
 ------

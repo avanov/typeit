@@ -1,22 +1,22 @@
+from typing import Dict
+
 import pytest
 import pickle
-from typing import NamedTuple
-from typeit.sums import SumType, Variant
+from typeit.sums import SumType
 
 
 # These types are defined outside test cases
 # because pickle requires classes to be defined in a module scope.
 class X(SumType):
-    VARIANT_A: Variant[str] = 'variant_a'
-
-
-class Y(SumType):
-    VARIANT_A: Variant[str] = 'variant_a'
+    class VARIANT_A(str): ...
 
 
 def test_enum_like_api():
     """ SumType should support the same usage patterns as Enum.
     """
+    class Y(SumType):
+        class VARIANT_A(str): ...
+
     assert X.VARIANT_A != Y.VARIANT_A
     assert X.VARIANT_A is not Y.VARIANT_A
 
@@ -38,19 +38,30 @@ def test_enum_like_api():
     assert X(pickle.loads(pickle.dumps(X.VARIANT_A))) is X.VARIANT_A
 
 
-class Z(SumType):
-    A: Variant[str]
+def test_sum_variant_data_is_typed():
+    class X(SumType):
+        class VARIANT_A(str): ...
 
-    class _BData(NamedTuple):
-        x: str
-        y: int
-        z: float
+        class VARIANT_B(str): ...
 
-    B: Variant[_BData]
-    C: Variant[None]
+    assert X.VARIANT_A is not X
+    a_inst = X.VARIANT_A('111')
+    assert isinstance(a_inst, X)
+    assert isinstance(a_inst, X.VARIANT_A)
+    assert not isinstance(a_inst, X.VARIANT_B)
 
 
 def test_sum_variants():
+    class Z(SumType):
+        class A(str): ...
+
+        class B:
+            x: str
+            y: int
+            z: float
+
+        class C: ...
+
     x = Z.A('111')
     y = Z.B(x='1', y=2, z=3.0)
     c = Z.C()
@@ -60,12 +71,59 @@ def test_sum_variants():
     assert isinstance(x, Z)
     assert isinstance(y, Z)
 
-    assert x.value == 'a'
-    assert x.data == '111'
+    assert y.x == '1'
+    assert y.y == 2
+    assert isinstance(y.z, float)
 
-    assert y.data.x == '1'
-    assert y.data.y == 2
-    assert isinstance(y.data.z, float)
-    assert isinstance(y.data, Z._BData)
 
-    assert c.data is None
+def test_sum_variant_subclass_positional():
+    class X(SumType):
+        class A(str): ...
+
+        B: str
+
+    x = X.A(5)
+    assert type(x) is X
+    assert isinstance(x, X)
+    assert isinstance(x, X.A)
+
+
+def test_generic_either():
+    class Either(SumType):
+        class Left: ...
+
+        class Right: ...
+
+    # User-defined Sums should adhere base Sum
+    with pytest.raises(TypeError):
+        class BrokenEither(Either):
+            class Left: ...
+
+
+    class ServiceResponse(Either):
+        class Left:
+            errmsg: str
+
+        class Right:
+            payload: Dict
+
+    x = ServiceResponse.Left(errmsg='Error')
+    y = ServiceResponse.Right(payload={'success': True})
+    assert type(x) is ServiceResponse
+    assert isinstance(x, ServiceResponse)
+    assert isinstance(x, ServiceResponse.Left)
+    assert isinstance(x, Either)
+    assert not isinstance(x, Either.Left)
+
+    class AlternativeEither(SumType):
+        class Left: ...
+
+        class Right: ...
+
+    assert not isinstance(x, AlternativeEither)
+    assert not isinstance(x, int)
+
+    assert x.errmsg == 'Error'
+    assert y.payload == {'success': True}
+
+

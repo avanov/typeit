@@ -7,7 +7,7 @@ import colander as col
 from pyrsistent import pmap
 
 from .errors import Invalid
-from ..sums import SumType
+from .. import sums
 from ..definitions import OverridesT
 from .. import interface as iface
 from ..compat import PY_VERSION
@@ -88,7 +88,74 @@ class Tuple(col.Tuple, metaclass=meta.SubscriptableSchemaTypeM):
     pass
 
 
-EnumLike = t.Union[std_enum.Enum, SumType]
+class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+    def __init__(
+        self,
+        typ: sums.SumType,
+        variant_nodes: t.Sequence[
+            t.Tuple[
+                t.Type, t.Union[nodes.SchemaNode, col.SequenceSchema, col.TupleSchema]
+            ],
+        ],
+    ) -> None:
+        super().__init__()
+        self.typ = typ
+        self.variant_nodes = variant_nodes
+        self.variant_schema_types: t.Set[col.SchemaType] = {
+            x.typ for _, x in variant_nodes
+        }
+
+    def deserialize(self, node, cstruct):
+        if cstruct in (col.null, None):
+            # explicitly passed None is not col.null
+            # therefore we must handle both
+            return cstruct
+
+        try:
+            tag, payload = cstruct
+        except ValueError:
+            raise Invalid(
+                node,
+                'Incorrect data layout for this type.',
+                cstruct
+            )
+        # next, iterate over available variants and return the first
+        # matched structure.
+        for var_type, var_schema in self.variant_nodes:
+            if var_type.__variant_meta__.value != tag:
+                continue
+            try:
+                variant_struct = var_schema.deserialize(payload)
+            except Invalid:
+                raise Invalid(
+                    node,
+                    'Incorrect payload format.',
+                    cstruct
+                )
+            return var_type(**variant_struct._asdict())
+
+        raise Invalid(
+            node,
+            'None of the variants matches provided data.',
+            cstruct
+        )
+
+    def serialize(self, node, appstruct: t.Any):
+        if appstruct in (col.null, None):
+            return None
+
+        for var_type, var_schema in self.variant_nodes:
+            if isinstance(appstruct, var_type):
+                return (var_type.__variant_meta__.value, var_schema.serialize(appstruct))
+
+        raise Invalid(
+            node,
+            'None of the variants matches provided structure.',
+            appstruct
+        )
+
+
+EnumLike = std_enum.Enum
 
 
 class Enum(primitives.Str):
@@ -110,6 +177,9 @@ class Enum(primitives.Str):
             return self.typ(r)
         except ValueError:
             raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
+
+
+
 
 
 generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = (
@@ -285,7 +355,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 SUBCLASS_BASED_TO_SCHEMA_TYPE: t.Mapping[
     t.Tuple[t.Type, ...], t.Type[SchemaType],
 ] = {
-    (std_enum.Enum, SumType): Enum,
+    (std_enum.Enum,): Enum,
     # Pathlib's PurePath and its derivatives
     (pathlib.PurePath,): Path,
 }
