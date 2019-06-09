@@ -127,9 +127,15 @@ class SumType(metaclass=SumTypeMetaclass):
 
     def __instancecheck__(self, other) -> bool:
         try:
-            return self.__variant_meta__ is other.__variant_meta__
+            m1 = self.__variant_meta__
+            m2 = other.__variant_meta__
         except AttributeError:
             return False
+
+        if not issubclass(m2.variant_of, self.__class__):
+            return False
+
+        return m1.variant_name == m2.variant_name
 
     @classmethod
     def values(cls) -> Set:

@@ -12,7 +12,7 @@ from typeit import codegen as cg
 from typeit import parser as p
 from typeit import flags
 from typeit import schema
-from typeit.sums import SumType, Either
+from typeit.sums import Either
 
 
 def test_parser_empty_struct():
@@ -260,7 +260,7 @@ def test_sum_types_as_union():
     assert isinstance(x.x, Either)
     assert isinstance(x.x, MyEither)
     assert isinstance(x.x, MyEither.Left)
-    assert not isinstance(x.x, Either.Left)
+    assert isinstance(x.x, Either.Left)
     assert not isinstance(x.x, Either.Right)
     assert not isinstance(x.x, MyEither.Right)
     assert isinstance(x.x.err, str)
@@ -278,7 +278,7 @@ def test_sum_types_as_union():
     assert isinstance(x.x, Either)
     assert isinstance(x.x, MyEither)
     assert isinstance(x.x, MyEither.Right)
-    assert not isinstance(x.x, Either.Right)
+    assert isinstance(x.x, Either.Right)
     assert not isinstance(x.x, Either.Left)
     assert not isinstance(x.x, MyEither.Left)
     assert isinstance(x.x.data, Data)
