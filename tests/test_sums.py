@@ -113,7 +113,7 @@ def test_generic_either():
     assert isinstance(x, ServiceResponse)
     assert isinstance(x, ServiceResponse.Left)
     assert isinstance(x, Either)
-    assert not isinstance(x, Either.Left)
+    assert isinstance(x, Either.Left)
 
     class AlternativeEither(SumType):
         class Left: ...
