@@ -288,6 +288,15 @@ def test_sum_types_as_union():
     assert x.x.name == 'Name'
     assert dict_x(x) == x_data
 
+    with pytest.raises(typeit.Invalid):
+        # version is missing
+        x = mk_x({
+            'x': ('right', {
+                'data': {'value': 'Value'},
+                'name': 'Name',
+            })
+        })
+
 
 def test_enum_unions_serialization():
     class E0(Enum):
