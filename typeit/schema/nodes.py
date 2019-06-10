@@ -2,6 +2,9 @@ from pyrsistent import pvector, pmap
 import colander as col
 
 
+Null = col.null
+
+
 class SchemaNode(col.SchemaNode):
     """ Colander's SchemaNode doesn't show node type in it's repr,
     we fix it with this subclass.
@@ -23,7 +26,7 @@ class SetSchema(col.SequenceSchema):
 
     def deserialize(self, *args, **kwargs):
         r = super().deserialize(*args, **kwargs)
-        if r in (col.null, None):
+        if r in (Null, None):
             return r
         if self.frozen:
             return frozenset(r)
@@ -33,7 +36,7 @@ class SetSchema(col.SequenceSchema):
 class PVectorSchema(col.SequenceSchema):
     def deserialize(self, *args, **kwargs):
         r = super().deserialize(*args, **kwargs)
-        if r in (col.null, None):
+        if r in (Null, None):
             return r
         return pvector(r)
 
@@ -41,6 +44,6 @@ class PVectorSchema(col.SequenceSchema):
 class PMapSchema(DictSchema):
     def deserialize(self, *args, **kwargs):
         r = super().deserialize(*args, **kwargs)
-        if r in (col.null, None):
+        if r in (Null, None):
             return r
         return pmap(r)
