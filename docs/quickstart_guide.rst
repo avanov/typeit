@@ -164,11 +164,131 @@ Supported types by default
 * ``typing.Tuple``
 * ``typing.Dict``
 * ``typing.Mapping``
+* ``typeit.sums.SumType``
 * ``enum.Enum`` derivatives
 * ``pathlib.Path`` derivatives
 * ``typing_extensions.Literal``
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
+
+
+Sum Type
+--------
+
+There are many ways to describe what a Sum Type (Tagged Union) is. Here's just a few of them:
+
+* `Wikipedia <https://en.wikipedia.org/wiki/Tagged_union>`_ describes it as "a data structure used
+  to hold a value that could take on several different, but fixed, types.
+  Only one of the types can be in use at any one time, and a tag explicitly indicates which one
+  is in use. It can be thought of as a type that has several “cases”, each of which should be handled
+  correctly when that type is manipulated";
+
+* or you can think of Sum Types as data types that have more than one constructor, where each constructor
+  accepts its own set of input data;
+
+* or even simpler, as a generalized version of Enums, with some extra features.
+
+``typeit`` provides a limited implementation of Sum Types, that have functionality similar to default Python Enums,
+plus the ability of each tag to hold a value.
+
+A new SumType is defined with the following signature:
+
+.. code-block:: python
+
+    from typeit.sums import SumType
+
+    class Payment(SumType):
+        class Cash:
+            amount: Money
+
+        class Card:
+            amount: Money
+            card: CardCredentials
+
+        class Phone:
+            amount: Money
+            provider: MobilePaymentProvider
+
+        class JustThankYou:
+            pass
+
+
+``Payment`` is a new Tagged Union (which is another name for a Sum Type, remember), that consists
+of four distinct possibilities: ``Cash``, ``Card``, ``Phone``, and ``JustThankYou``.
+These possibilities are called tags (or variants, or constructors) of ``Payment``.
+In other words, any instance of ``Payment`` is either ``Cash`` or ``Card`` or ``Phone`` or ``JustThankYou``,
+and is never two or more of them at the same time.
+
+Now, let's observe the properties of this new type:
+
+.. code-block:: python
+
+    >>> adam_paid = Payment.Cash(amount=Money('USD', 10))
+    >>> jane_paid = Payment.Card(amount=Money('GBP', 8),
+    ...                          card=CardCredentials(number='1234 5678 9012 3456',
+    ...                                               holder='Jane Austen',
+    ...                                               validity='12/24',
+    ...                                               secret='***'))
+    >>> fred_paid = Payment.JustThankYou()
+    >>>
+    >>> assert type(adam_paid) is type(jane_paid) is type(fred_paid) is Payment
+    >>>
+    >>> assert isinstance(adam_paid, Payment)
+    >>> assert isinstance(jane_paid, Payment)
+    >>> assert isinstance(fred_paid, Payment)
+    >>>
+    >>> assert isinstance(adam_paid, Payment.Cash)
+    >>> assert isinstance(jane_paid, Payment.Card)
+    >>> assert isinstance(fred_paid, Payment.JustThankYou)
+    >>>
+    >>> assert not isinstance(adam_paid, Payment.Card)
+    >>> assert not isinstance(adam_paid, Payment.JustThankYou)
+    >>>
+    >>> assert not isinstance(jane_paid, Payment.Cash)
+    >>> assert not isinstance(jane_paid, Payment.JustThankYou)
+    >>>
+    >>> assert not isinstance(fred_paid, Payment.Cash)
+    >>> assert not isinstance(fred_paid, Payment.Card)
+    >>>
+    >>> assert not isinstance(adam_paid, Payment.Phone)
+    >>> assert not isinstance(jane_paid, Payment.Phone)
+    >>> assert not isinstance(fred_paid, Payment.Phone)
+    >>>
+    >>> assert Payment('Phone') is Payment.Phone
+    >>> assert Payment('phone') is Payment.Phone
+    >>> assert Payment(Payment.Phone) is Payment.Phone
+    >>>
+    >>> paid = Payment(adam_paid)
+    >>> assert paid is adam_paid
+
+
+As you can see, every variant constructs an instance of the same type ``Payment``,
+and yet, every instance is identified with its own tag. You can use this tag to branch
+your business logic, like in a function below:
+
+.. code-block:: python
+
+    def notify_restaurant_owner(channel: Broadcaster, payment: Payment):
+        if isinstance(payment, Payment.JustThankYou):
+            channel.push(f'A customer said Big Thank You!')
+        else:  # Cash, Card, Phone instances have the `payment.amount` attribute
+            channel.push(f'A customer left {payment.amount}!')
+
+
+And, of course, you can use Sum Types in signatures of your serializable data:
+
+.. code-block:: python
+
+    from typing import NamedTuple, Sequence
+    from typeit import type_constructor
+
+    class Payments(NamedTuple):
+        latest: Sequence[Payment]
+
+    mk_payments, dict_payments = type_constructor ^ Payments
+
+    json_ready = dict_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
+    payments = mk_payments(json_ready)
 
 
 Flags

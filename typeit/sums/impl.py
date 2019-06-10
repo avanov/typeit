@@ -208,8 +208,8 @@ class SumType(metaclass=SumTypeMetaclass):
             raise ValueError(err_str)
         else:
             try:
-                variant_name = cls.__sum_meta__.values[value]
-            except KeyError:
+                variant_name = cls.__sum_meta__.values[value.lower()]
+            except (AttributeError, KeyError):
                 raise ValueError(err_str)
             return cls.__sum_meta__.variants[variant_name]
 
