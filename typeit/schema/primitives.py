@@ -5,9 +5,11 @@ from .meta import SubscriptableSchemaTypeM
 from .errors import Invalid
 
 
+Null = col.null
+
 
 def _strict_deserialize(node, rval, cstruct):
-    if rval in (col.null, None):
+    if rval in (Null, None):
         return rval
     if type(rval) is not type(cstruct):
         raise Invalid(
@@ -19,7 +21,7 @@ def _strict_deserialize(node, rval, cstruct):
 
 
 def _strict_serialize(node, allowed_type, appstruct):
-    if appstruct in (col.null, None):
+    if appstruct in (Null, None):
         return appstruct
 
     if type(appstruct) is not allowed_type:
@@ -49,7 +51,7 @@ class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
         of a number, whereas we want identical representation of the original data.
         """
         r = super().serialize(node, appstruct)
-        if r in (col.null, 'None'):
+        if r in (Null, 'None'):
             return None
         return int(r)
 
@@ -75,7 +77,7 @@ class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
         of a boolean flag, whereas we want identical representation of the original data.
         """
         r = super().serialize(node, appstruct)
-        if r in (col.null, 'None'):
+        if r in (Null, 'None'):
             return None
         return {'false': False, 'true': True}[r]
 
@@ -102,7 +104,7 @@ class NonStrictStr(col.Str, metaclass=SubscriptableSchemaTypeM):
         with strict primitive type semantics
         """
         r = super().serialize(node, appstruct)
-        if r in (col.null, 'None'):
+        if r in (Null, 'None'):
             return None
         return r
 
@@ -126,7 +128,7 @@ class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
         r = super().serialize(node, appstruct)
-        if r in (col.null, 'None'):
+        if r in (Null, 'None'):
             return None
         return float(r)
 

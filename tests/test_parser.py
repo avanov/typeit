@@ -2,7 +2,6 @@ import json
 from enum import Enum
 from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet, get_type_hints
 
-import colander
 import pytest
 from money.currency import Currency
 from money.money import Money
@@ -440,7 +439,7 @@ def test_extending():
     class MoneySchema(schema.types.Tuple):
         def deserialize(self, node, cstruct):
             r = super().deserialize(node, cstruct)
-            if r in (colander.null, None):
+            if r in (schema.types.Null, None):
                 return r
             try:
                 currency = Currency(r[0])
@@ -455,7 +454,8 @@ def test_extending():
             return rv
 
         def serialize(self, node, appstruct: Optional[Money]):
-            if appstruct is None or appstruct is colander.null:
+            if appstruct is None or appstruct is schema.types.Null:
+            # if appstruct is None or appstruct is schema.types.Null:
                 return appstruct
 
             r = (appstruct.currency, appstruct.amount)
