@@ -14,7 +14,8 @@ def _strict_deserialize(node, rval, cstruct):
     if type(rval) is not type(cstruct):
         raise Invalid(
             node,
-            'Primitive values should adhere strict type semantics',
+            f'Primitive values should adhere strict type semantics: '
+            f'{type(rval)} was passed, {type(cstruct)} is expected by deserializer.',
             cstruct
         )
     return rval
@@ -27,7 +28,8 @@ def _strict_serialize(node, allowed_type, appstruct):
     if type(appstruct) is not allowed_type:
         raise Invalid(
             node,
-            'Primitive values should adhere strict type semantics',
+            f'Primitive values should adhere strict type semantics: '
+            f'{type(appstruct)} was passed, {allowed_type} is expected by serializer.',
             appstruct
         )
     return appstruct

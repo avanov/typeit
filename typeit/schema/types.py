@@ -4,7 +4,8 @@ import pathlib
 
 import typing_inspect as insp
 import colander as col
-from pyrsistent import pmap
+from pyrsistent import pmap, pvector
+from pyrsistent.typing import PMap
 
 from .errors import Invalid
 from .. import sums
@@ -47,15 +48,17 @@ class Structure(col.Mapping):
     def __init__(self,
                  typ: t.Type[iface.IType],
                  overrides: OverridesT,
-                 unknown: str = 'ignore') -> None:
+                 attrs: t.Sequence[str] = pvector([]),
+                 deserialize_overrides: PMap[str, str] = pmap({}),
+                 unknown: str = 'ignore',
+                 ) -> None:
+        """
+        :param deserialize_overrides: source_field_name => struct_field_name mapping
+        """
         super().__init__(unknown)
         self.typ = typ
-        # source_field_name => struct_field_name
-        self.deserialize_overrides = pmap({
-            overrides[getattr(typ, x)]: x
-            for x in typ._fields
-            if getattr(typ, x) in overrides
-        })
+        self.attrs = attrs
+        self.deserialize_overrides = deserialize_overrides
         # struct_field_name => source_field_name
         self.serialize_overrides = pmap({
             v: k for k, v in self.deserialize_overrides.items()
@@ -79,8 +82,8 @@ class Structure(col.Mapping):
         return super().serialize(
             node,
             {
-                self.serialize_overrides.get(k, k): v
-                for k, v in appstruct._asdict().items()
+                self.serialize_overrides.get(attr_name, attr_name): getattr(appstruct, attr_name)
+                for attr_name in self.attrs
             }
         )
 
