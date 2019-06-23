@@ -2,10 +2,7 @@ import json
 from enum import Enum
 from typing import NamedTuple, Dict, Any, Sequence, Union, Tuple, Optional, Set, List, FrozenSet, get_type_hints
 
-import colander
 import pytest
-from money.currency import Currency
-from money.money import Money
 
 import typeit
 from typeit import codegen as cg
@@ -288,6 +285,15 @@ def test_sum_types_as_union():
     assert x.x.name == 'Name'
     assert dict_x(x) == x_data
 
+    with pytest.raises(typeit.Invalid):
+        # version is missing
+        x = mk_x({
+            'x': ('right', {
+                'data': {'value': 'Value'},
+                'name': 'Name',
+            })
+        })
+
 
 def test_enum_unions_serialization():
     class E0(Enum):
@@ -422,54 +428,6 @@ def test_name_overrides():
     mk_x, dict_x = p.type_constructor & {X.x: 'my-x'} ^ X
     x = mk_x(data)
     assert dict_x(x) == data
-
-
-def test_extending():
-    class X(NamedTuple):
-        x: Money
-
-    class MoneySchema(schema.types.Tuple):
-        def deserialize(self, node, cstruct):
-            r = super().deserialize(node, cstruct)
-            if r in (colander.null, None):
-                return r
-            try:
-                currency = Currency(r[0])
-            except ValueError:
-                raise typeit.Invalid(node, f'Invalid currency token in {r}', cstruct)
-
-            try:
-                rv = Money(r[1], currency)
-            except:
-                raise typeit.Invalid(node, f'Invalid amount in {r}', cstruct)
-
-            return rv
-
-        def serialize(self, node, appstruct: Optional[Money]):
-            if appstruct is None or appstruct is colander.null:
-                return appstruct
-
-            r = (appstruct.currency, appstruct.amount)
-            return super().serialize(node, r)
-
-    with pytest.raises(TypeError):
-        # type ``Money`` is not defined in overrides
-        __ = p.type_constructor ^ X
-
-    mk_x, dict_x = (
-        p.type_constructor
-            & MoneySchema[Money] << schema.types.Enum(Currency) << schema.primitives.NonStrictStr()
-            ^ X
-    )
-
-    serialized = {
-        'x': ('GBP', '10')
-    }
-
-    x = mk_x(serialized)
-    assert isinstance(x.x, Money)
-    assert dict_x(x) == serialized
-
 
 
 GITHUB_PR_PAYLOAD_JSON = """

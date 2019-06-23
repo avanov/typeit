@@ -2,5 +2,5 @@
 pytest>=4.6.1,<4.7
 coverage==4.5.3
 pytest-cov>=2.7.1,<2.8
-mypy==0.701
+mypy==0.710
 py-money==0.4.0

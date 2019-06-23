@@ -125,5 +125,3 @@ def test_generic_either():
 
     assert x.errmsg == 'Error'
     assert y.payload == {'success': True}
-
-
