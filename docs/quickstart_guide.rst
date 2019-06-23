@@ -148,8 +148,8 @@ any nested types, for instance:
     mk_person, dict_person = type_constructor & overrides ^ Person
 
 
-Supported types by default
---------------------------
+Supported types
+---------------
 
 * ``bool``
 * ``int``
@@ -170,6 +170,7 @@ Supported types by default
 * ``typing_extensions.Literal``
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
+* Regular classes with annotated ``__init__`` method.
 
 
 Sum Type

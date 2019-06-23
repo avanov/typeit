@@ -2,11 +2,15 @@
 CHANGELOG
 =========
 
+0.13.0
+==============
+
+* Added support for regular classes with annotated ``__init__``.
+
 0.12.1, 0.12.2
 ==============
 
 * Experimental support for SumType.
-
 
 0.12.0
 ============
