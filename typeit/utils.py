@@ -1,6 +1,6 @@
 import re
 import keyword
-from typing import Iterator, NamedTuple, Any, Mapping, Union, Optional
+from typing import Iterator, NamedTuple, Any, Mapping, Union, Optional, Type
 
 from .schema.errors import Invalid
 from . import interface as iface
@@ -58,3 +58,7 @@ def iter_invalid(error: Invalid,
                 traversed_value = None
                 break
         yield InvalidData(path=e_path, reason=msg, sample=traversed_value)
+
+
+def is_named_tuple(typ: Type[Any]) -> bool:
+    return hasattr(typ, '_fields')

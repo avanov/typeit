@@ -9,10 +9,11 @@ import collections
 
 import colander as col
 import typing_inspect as insp
-from pyrsistent import pmap
+from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
 
 from .definitions import OverridesT, NO_OVERRIDES
+from .utils import is_named_tuple
 from . import compat
 from . import flags
 from . import schema
@@ -22,6 +23,8 @@ from . import interface as iface
 
 
 T = TypeVar('T')
+
+NoneType = type(None)
 
 
 OverrideT = Union[
@@ -165,7 +168,7 @@ def _maybe_node_for_literal(
         insp.get_generic_type(Literal)  # py3.6 fix
     }),
     _supported_literal_types=frozenset({
-        bool, int, str, bytes, type(None),
+        bool, int, str, bytes, NoneType,
     })
 ) -> Optional[schema.nodes.SchemaNode]:
     """ Handles cases where typ is a Literal, according to the allowed
@@ -323,14 +326,40 @@ def _node_for_type(
     if type(typ) is not type:
         return None
 
-    if not hasattr(typ, '_fields'):
-        return None
+    if is_named_tuple(typ):
+        deserialize_overrides = pmap({
+            overrides[getattr(typ, x)]: x
+            for x in typ._fields
+            if getattr(typ, x) in overrides
+        })
+        hints_source = typ
+    else:
+        # use init-based types;
+        # note that overrides are not going to work without named tuples
+        deserialize_overrides = pmap({})
+        hints_source = typ.__init__
 
-    type_schema = schema.nodes.SchemaNode(schema.types.Structure(typ, overrides))
-    for field_name, field_type in get_type_hints(typ).items():
+    attribute_hints = list(filter(
+        lambda x: x[1] is not NoneType,
+        get_type_hints(hints_source).items()
+    ))
+
+    type_schema = schema.nodes.SchemaNode(
+        schema.types.Structure(
+            typ=typ,
+            overrides=overrides,
+            attrs=pvector([x[0] for x in attribute_hints]),
+            deserialize_overrides=deserialize_overrides,
+        )
+    )
+
+    for field_name, field_type in attribute_hints:
         # apply field override, if available
-        field = getattr(typ, field_name)
-        serialized_field_name = overrides.get(field, field_name)
+        if deserialize_overrides:
+            field = getattr(typ, field_name)
+            serialized_field_name = overrides.get(field, field_name)
+        else:
+            serialized_field_name = field_name
 
         node_type = decide_node_type(field_type, overrides)
         if node_type is None:
