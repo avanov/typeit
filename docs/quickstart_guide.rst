@@ -29,7 +29,7 @@ For example, try the following snippet in your shell:
 
 .. code-block:: bash
 
-    $ echo '{"first-name": "Hello", "initial": null, "last_name": World}' | typeit gen
+    $ echo '{"first-name": "Hello", "initial": null, "last_name": "World"}' | typeit gen
 
 
 You should see output similar to this:
@@ -170,7 +170,7 @@ Supported types
 * ``typing_extensions.Literal``
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
-* Regular classes with annotated ``__init__`` method.
+* Regular classes with annotated ``__init__`` methods (`dataclasses.dataclass` are supported as a consequence of this).
 
 
 Sum Type
