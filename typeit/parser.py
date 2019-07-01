@@ -316,16 +316,13 @@ def _maybe_node_for_dict(
     return None
 
 
-def _node_for_type(
+def _maybe_node_for_user_type(
     typ: Type[iface.IType],
     overrides: OverridesT
 ) -> Optional[schema.nodes.SchemaNode]:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
-    if type(typ) is not type:
-        return None
-
     if is_named_tuple(typ):
         deserialize_overrides = pmap({
             overrides[getattr(typ, x)]: x
@@ -382,7 +379,7 @@ def _maybe_node_for_overridden(
     return None
 
 
-PARSING_ORDER = [ _maybe_node_for_overridden
+PARSING_ORDER = [_maybe_node_for_overridden
                 , _maybe_node_for_primitive
                 , _maybe_node_for_type_var
                 , _maybe_node_for_union
@@ -396,7 +393,7 @@ PARSING_ORDER = [ _maybe_node_for_overridden
                 # at this point it could be a user-defined type,
                 # so the parser may do another recursive iteration
                 # through the same plan
-                , _node_for_type ]
+                , _maybe_node_for_user_type]
 
 
 def decide_node_type(
@@ -440,10 +437,11 @@ class _TypeConstructor:
 
         :param overrides: a mapping of type_field => serialized_field_name.
         """
-        schema_node = _node_for_type(typ, overrides)
-        if not schema_node:
+        try:
+            schema_node = decide_node_type(typ, overrides)
+        except TypeError as e:
             raise TypeError(
-                f'Cannot create a type constructor for {typ}'
+                f'Cannot create a type constructor for {typ}: {e}'
             )
         return schema_node.deserialize, schema_node.serialize
 

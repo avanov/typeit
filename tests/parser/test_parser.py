@@ -365,6 +365,44 @@ def test_type_with_set():
     assert x.d == x.h
 
 
+def test_parse_sequence():
+    class X(NamedTuple):
+        x: int
+        y: Dict[str, Any]
+
+    XS = Sequence[X]
+
+    data = [{'x': 1, 'y': {}}]
+    mk_xs, dict_xs = p.type_constructor(XS)
+    z = mk_xs(data)
+    assert z[0].x == 1
+    assert dict_xs(z) == data
+
+    # Sequences with primitives
+    XS = Sequence[int]
+
+    data = [1, 2, 3]
+    mk_xs, serialize_xs = p.type_constructor(XS)
+
+    z = mk_xs(data)
+    assert z[0] == 1
+    assert serialize_xs(z) == data
+
+
+@pytest.mark.parametrize('typ, data', (
+    (int, 1),
+    (bool, True),
+    (str, '1'),
+    (Dict[str, Any], {'x': 1, 'y': True, 'z': '1'})
+))
+def test_parse_builtins(typ, data):
+    mk_x, serialize_x = p.type_constructor(typ)
+
+    z = mk_x(data)
+    assert z == data
+    assert serialize_x(z) == data
+
+
 def test_schema_node():
     x = schema.nodes.SchemaNode(schema.primitives.Int())
     assert x.__repr__().startswith('SchemaNode(<typeit.schema.primitives.Int ')
