@@ -5,10 +5,10 @@ import sys
 
 from pkg_resources import get_distribution
 
-from . import run
+from . import gen
 
 
-def main(args=None, stdout=None):
+def main(args=None, stdout=sys.stdout):
     parser = argparse.ArgumentParser(description='Type it!')
     parser.add_argument('-V', '--version', action='version',
                         version='typeit {}'.format(get_distribution("typeit").version))
@@ -21,7 +21,7 @@ def main(args=None, stdout=None):
 
     # $ typeit gen
     # ---------------------------
-    run.setup(subparsers)
+    gen.setup(subparsers)
 
     # Parse arguments and config
     # --------------------------
@@ -31,4 +31,5 @@ def main(args=None, stdout=None):
 
     # Set up and run
     # --------------
-    args.func(args)
+    args.func(args, out_channel=stdout)
+    sys.exit(0)

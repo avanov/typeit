@@ -51,7 +51,7 @@ You should see output similar to this:
     }
 
 
-    mk_main, dict_main = type_constructor & overrides ^ Main
+    mk_main, serialize_main = type_constructor & overrides ^ Main
 
 
 You can use this snippet as a starting point to improve further.
@@ -73,11 +73,11 @@ and rename the whole structure to better indicate the nature of the data:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 ``typeit`` will handle creation of the constructor ``mk_person :: Dict -> Person`` and the serializer
-``dict_person :: Person -> Dict`` for you.
+``serialize_person :: Person -> Dict`` for you.
 
 ``type_constructor & overrides`` produces a new type constructor that takes overrides into consideration,
 and ``type_constructor ^ Person`` reads as "type constructor applied to the Person structure" and essentially
@@ -107,7 +107,7 @@ our ``Person`` type:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 This is the way we can indicate that our Python structure has different field
@@ -145,7 +145,7 @@ any nested types, for instance:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 Supported types
@@ -286,9 +286,9 @@ And, of course, you can use Sum Types in signatures of your serializable data:
     class Payments(NamedTuple):
         latest: Sequence[Payment]
 
-    mk_payments, dict_payments = type_constructor ^ Payments
+    mk_payments, serialize_payments = type_constructor ^ Payments
 
-    json_ready = dict_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
+    json_ready = serialize_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
     payments = mk_payments(json_ready)
 
 

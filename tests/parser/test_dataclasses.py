@@ -13,7 +13,7 @@ if PY_VERSION >= (3, 7):
             unit_price: float
             quantity_on_hand: int = 0
 
-        mk_inv, dict_inv = p.type_constructor(InventoryItem)
+        mk_inv, serialize_inv = p.type_constructor(InventoryItem)
 
         serialized = {
             'name': 'test',
@@ -22,4 +22,4 @@ if PY_VERSION >= (3, 7):
         }
         x = mk_inv(serialized)
         assert isinstance(x, InventoryItem)
-        assert dict_inv(x) == serialized
+        assert serialize_inv(x) == serialized

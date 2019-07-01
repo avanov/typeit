@@ -13,14 +13,14 @@ def test_mapping():
         y: Mapping[str, Any]
         z: collections.abc.Mapping
 
-    mk_x, dict_x = type_constructor ^ X
+    mk_x, serialize_x = type_constructor ^ X
 
 
 def test_sequence():
     class X(NamedTuple):
         xs: collections.abc.Sequence
 
-    mk_x, dict_x = type_constructor ^ X
+    mk_x, serialize_x = type_constructor ^ X
 
 
 def test_sets():
@@ -28,7 +28,7 @@ def test_sets():
         xs: collections.abc.Set
         ys: collections.abc.MutableSet
 
-    mk_x, dict_x = type_constructor ^ X
+    mk_x, serialize_x = type_constructor ^ X
 
 
 def test_literals():
@@ -37,7 +37,7 @@ def test_literals():
         y: Literal[1, 'a']
         z: Literal[None, 1]
 
-    mk_x, dict_x = type_constructor ^ X
+    mk_x, serialize_x = type_constructor ^ X
 
     data = {
         'x': 1,
@@ -48,7 +48,7 @@ def test_literals():
     assert x.x == 1
     assert x.y == 'a'
     assert x.z is None
-    assert dict_x(x) == data
+    assert serialize_x(x) == data
 
     data = {
         'x': 1,
@@ -74,7 +74,7 @@ def test_literals():
 
     x = X(None, None, 3)
     with pytest.raises(Invalid):
-        dict_x(x)
+        serialize_x(x)
 
 
 def test_literals_included():
@@ -83,7 +83,7 @@ def test_literals_included():
         y: Optional[Literal[1]]
         z: Sequence[Literal[1]]
 
-    mk_x, dict_x = type_constructor ^ X
+    mk_x, serialize_x = type_constructor ^ X
 
     data = {
         'x': None,
@@ -92,7 +92,7 @@ def test_literals_included():
     }
     x = mk_x(data)
     assert x.z == [1]
-    assert dict_x(x) == data
+    assert serialize_x(x) == data
 
     mk_x({
         'x': None,

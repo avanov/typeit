@@ -27,7 +27,7 @@ def test_iter_invalid_data():
         items: Sequence[Item]
         item: Item
 
-    mk_x, dict_x = type_constructor(X)
+    mk_x, serialize_x = type_constructor(X)
 
     data = {
         'items': [

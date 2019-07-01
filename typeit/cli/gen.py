@@ -15,7 +15,7 @@ def setup(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     return sub
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: argparse.Namespace, out_channel=sys.stdout) -> None:
     """ $ typeit gen <source> <target>
     """
     try:
@@ -27,9 +27,8 @@ def main(args: argparse.Namespace) -> None:
 
     struct, overrides = cg.typeit(dict_struct)
     python_src, __ = cg.codegen_py(struct, overrides)
-    sys.stdout.write(python_src)
-    sys.stdout.write('\n')
-    sys.exit(0)
+    out_channel.write(python_src)
+    out_channel.write('\n')
 
 
 def _read_data(fd) -> Dict:

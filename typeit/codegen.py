@@ -1,7 +1,20 @@
-from typing import Type, Tuple, get_type_hints, List, Any, Optional, Dict, NamedTuple, Union, Callable, Mapping
+from typing import (
+    Type,
+    Tuple,
+    get_type_hints,
+    List,
+    Any,
+    Optional,
+    Dict,
+    NamedTuple,
+    Union,
+    Callable,
+    Mapping,
+    Sequence,
+)
 
 import inflection
-from pyrsistent import pmap
+from pyrsistent import pmap, pvector
 from pyrsistent.typing import PMap
 
 from .utils import normalize_name
@@ -23,6 +36,22 @@ else:
     # and 3.6(__name__)
     def _annotation_name_getter(typ: Type) -> str:
         return typ.__name__
+
+
+BuiltinTypes = Union[
+    bool,
+    int,
+    float,
+    str,
+]
+
+
+JsonType = Union[
+    BuiltinTypes,
+    List[Any],
+    Dict[str, Any],
+    None
+]
 
 
 BUILTIN_LITERALS_FOR_TYPES = {
@@ -101,27 +130,24 @@ def codegen_py(typ: Type[iface.IType],
 
     if top:
         if overrides_source:
-            overrides_source_str = 'overrides = {\n' + f'\n'.join(overrides_source) + '\n}'
-            code.extend([
+            overrides_part = [
                 LINE_SKIP,
                 LINE_SKIP,
-                overrides_source_str,
-                LINE_SKIP,
-                LINE_SKIP,
-                f'mk_{inflection.underscore(typ.__name__)}, '
-                f'dict_{inflection.underscore(typ.__name__)} = '
-                f'type_constructor & overrides ^ {typ.__name__}',
-                LINE_SKIP,
-            ])
+                'overrides = {\n' + f'\n'.join(overrides_source) + '\n}',
+            ]
+            constructor_part = f'type_constructor & overrides ^ {typ.__name__}'
         else:
-            code.extend([
-                LINE_SKIP,
-                LINE_SKIP,
-                f'mk_{inflection.underscore(typ.__name__)}, '
-                f'dict_{inflection.underscore(typ.__name__)} = '
-                f'type_constructor ^ {typ.__name__}',
-                LINE_SKIP,
-            ])
+            overrides_part = []
+            constructor_part = f'type_constructor ^ {typ.__name__}'
+
+        code.extend(overrides_part)
+        code.extend([
+            LINE_SKIP,
+            LINE_SKIP,
+            f'mk_{inflection.underscore(typ.__name__)}, '
+            f'serialize_{inflection.underscore(typ.__name__)} = {constructor_part}',
+            LINE_SKIP,
+        ])
 
         code = [
             'from typing import NamedTuple, Dict, Any, List, Optional',
@@ -147,31 +173,15 @@ def literal_for_type(typ: Type[iface.IType]) -> str:
         return typ.__name__
 
 
-def typeit(dictionary: Dict) -> Tuple[Type[iface.IType], OverridesT]:
+def typeit(mapping: Mapping[str, Any]) -> Tuple[Type[iface.IType], OverridesT]:
     """
-    :param dictionary: input struct represented as dictionary
+    :param mapping: input struct represented as a mapping
     that needs an equivalent fixed structure.
     """
-    structure_fields, overrides = parse(dictionary)
+    structure_fields, overrides = parse(mapping)
     typ, overrides_ = construct_type('main', structure_fields)
     overrides = overrides.update(overrides_)
     return typ, overrides
-
-
-BuiltinTypes = Union[
-    bool,
-    int,
-    float,
-    str,
-]
-
-
-JsonType = Union[
-    BuiltinTypes,
-    List[Any],
-    Dict[str, Any],
-    None
-]
 
 
 JSON_TO_BUILTIN_TYPES = {
@@ -189,20 +199,20 @@ def type_for(obj: JsonType) -> Type[JsonType]:
     return JSON_TO_BUILTIN_TYPES[obj.__class__]
 
 
-def parse(dictionary: Dict[str, JsonType],
-          parent_prefix: str = '') -> Tuple[List[FieldDefinition], OverridesT]:
+def parse(mapping: Mapping[str, Any],
+          parent_prefix: str = '') -> Tuple[Sequence[FieldDefinition], OverridesT]:
     """ Dictionary Parser entry point.
     """
     definitions: List[FieldDefinition] = []
     overrides: OverridesT = NO_OVERRIDES
-    for source_name, field_struct in dictionary.items():
+    for source_name, field_struct in mapping.items():
         field_name = normalize_name(source_name)
         field_type, overrides_ = clarify_struct_type(field_name, field_struct, parent_prefix)
         overrides = overrides.update(overrides_)
         definitions.append(FieldDefinition(source_name=source_name,
                                            field_name=field_name,
                                            field_type=field_type))
-    return definitions, overrides
+    return pvector(definitions), overrides
 
 
 def clarify_struct_type(field_name: str,
@@ -265,7 +275,7 @@ FIELD_TYPE_CLARIFIERS: Mapping[Type, ClarifierCallableT] = {
 
 
 def construct_type(name: str,
-                   fields: List[FieldDefinition]) -> Tuple[Type, OverridesT]:
+                   fields: Sequence[FieldDefinition]) -> Tuple[Type, OverridesT]:
     """ Generates a NamedTuple type structure out of provided
     field definitions.
 
