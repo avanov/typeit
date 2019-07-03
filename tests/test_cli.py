@@ -20,10 +20,10 @@ TYPE_REF = 'mk_main, serialize_main = type_constructor ^ Main'
     (''' "1" ''', "mk_str, serialize_str = type_constructor ^ str"),
     (''' true ''', "mk_bool, serialize_bool = type_constructor ^ bool"),
     (''' null ''', "mk_none, serialize_none = type_constructor ^ None"),
-    (''' [] ''', "Main = Sequence[Any]\n\nmk_main, serialize_main = type_constructor ^ Main"),
-    (''' [[]] ''', "Main = Sequence[Sequence[Any]]\n\nmk_main, serialize_main = type_constructor ^ Main"),
-    (''' [[1]] ''', "Main = Sequence[Sequence[int]]\n\nmk_main, serialize_main = type_constructor ^ Main"),
-    (''' [[ {"x": {"y": null}} ]] ''', "class Main(NamedTuple):\n    x: X\n\nmk_main, serialize_main = type_constructor ^ Main"),
+    (''' [] ''', "Main = Sequence[Any]\n\n\nmk_main, serialize_main = type_constructor ^ Main"),
+    (''' [[]] ''', "Main = Sequence[Sequence[Any]]\n\n\nmk_main, serialize_main = type_constructor ^ Main"),
+    (''' [[1]] ''', "Main = Sequence[Sequence[int]]\n\n\nmk_main, serialize_main = type_constructor ^ Main"),
+    (''' [[ {"x": {"y": null}} ]] ''', "class Main(NamedTuple):\n    x: X\n\n\nmk_main, serialize_main = type_constructor ^ Main"),
 ])
 def test_cli(stdin_data, reference_snippet):
     out_channel = io.StringIO()

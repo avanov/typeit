@@ -426,3 +426,13 @@ def test_name_overrides():
     assert serialize_x(x) == data
 
 
+@pytest.mark.parametrize('typ', [
+    int,
+    str,
+    bool,
+    float,
+    None,
+    Sequence,
+])
+def test_parse_builtins_and_sequences(typ):
+    mk_x, serialize_x = p.type_constructor ^ typ

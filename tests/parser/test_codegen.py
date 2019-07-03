@@ -14,7 +14,7 @@ def test_parser_empty_struct():
     overrides = overrides.update(overrides_)
     assert overrides == {}
     python_src, __ = cg.codegen_py(TypeitSchema(struct, overrides), False)
-    assert python_src == "class Main(NamedTuple):\n    ...\n\n"
+    assert python_src == "class Main(NamedTuple):\n    ..."
 
 
 @pytest.mark.parametrize('data', (

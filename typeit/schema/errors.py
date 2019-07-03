@@ -24,6 +24,9 @@ class Error(ValueError):
     def __iter__(self) -> Iterator[InvalidData]:
         return iter_invalid(self.validation_error, self.sample_data)
 
+    def __str__(self):
+        return str(self.validation_error)
+
 
 def iter_invalid(error: Invalid,
                  data: Mapping[str, Any]) -> Iterator[InvalidData]:
@@ -68,4 +71,4 @@ def errors_aware_constructor(construct: Callable[[T], S], data: T) -> S:
         return construct(data)
     except Invalid as e:
         raise Error(validation_error=e,
-                    sample_data=data)
+                    sample_data=data) from None

@@ -42,6 +42,15 @@ def inner_type_boundaries(typ: Type) -> Tuple:
     return insp.get_args(typ, evaluate=True)
 
 
+def _maybe_node_for_none(
+    typ: Union[Type[iface.IType], Any],
+    overrides: OverridesT
+) -> Optional[schema.nodes.SchemaNode]:
+    if typ is None:
+        return _maybe_node_for_literal(Literal[None], overrides)
+    return None
+
+
 def _maybe_node_for_primitive(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT
@@ -382,6 +391,7 @@ def _maybe_node_for_overridden(
 
 
 PARSING_ORDER = [_maybe_node_for_overridden
+                , _maybe_node_for_none
                 , _maybe_node_for_primitive
                 , _maybe_node_for_type_var
                 , _maybe_node_for_union
