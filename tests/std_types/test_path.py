@@ -14,7 +14,7 @@ def test_path():
         # we are omitting a test here
         posix_path: p.PosixPath
 
-    mk_x, dict_x = type_constructor(X)
+    mk_x, serialize_x = type_constructor(X)
 
     data = {
         'pure': '/',
@@ -24,20 +24,20 @@ def test_path():
         'posix_path': '.',
     }
     x = mk_x(data)
-    assert dict_x(x) == data
+    assert serialize_x(x) == data
 
 
 def test_path_union():
     class X(NamedTuple):
         x: Union[p.Path, Dict]
 
-    mk_x, dict_x = type_constructor(X)
+    mk_x, serialize_x = type_constructor(X)
     data = {
         'x': '/'
     }
     x = mk_x(data)
     assert isinstance(x.x, p.Path)
-    assert dict_x(x) == data
+    assert serialize_x(x) == data
 
     data = {
         'x': {
@@ -46,4 +46,4 @@ def test_path_union():
     }
     x = mk_x(data)
     assert isinstance(x.x, dict)
-    assert dict_x(x) == data
+    assert serialize_x(x) == data

@@ -6,7 +6,7 @@ from typeit import flags
 
 def test_regular_classes():
 
-    mk_x, dict_x = p.type_constructor & flags.NON_STRICT_PRIMITIVES ^ Money
+    mk_x, serialize_x = p.type_constructor & flags.NON_STRICT_PRIMITIVES ^ Money
 
     serialized = {
         'amount': '10',
@@ -15,4 +15,4 @@ def test_regular_classes():
 
     x = mk_x(serialized)
     assert isinstance(x, Money)
-    assert dict_x(x) == serialized
+    assert serialize_x(x) == serialized

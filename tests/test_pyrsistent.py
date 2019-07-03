@@ -12,7 +12,7 @@ def test_pyrsistent_types():
         b: ps.typing.PVector[ps.typing.PMap]
         c: Optional[ps.typing.PMap]
 
-    mk_x, dict_x = ty.type_constructor ^ X
+    mk_x, serialize_x = ty.type_constructor ^ X
 
     data = {
         'a': {'x': 'x', 'y': 'y'},
@@ -23,12 +23,12 @@ def test_pyrsistent_types():
     assert isinstance(x.a, ps.PMap)
     assert isinstance(x.b, ps.PVector)
     assert isinstance(x.b[0], ps.PMap)
-    assert dict_x(x) == data
+    assert serialize_x(x) == data
 
     data = {
         'a': None,
         'b': [{'x': 'x', 'y': 'y'}],
         'c': {'x': 'x', 'y': 'y'}
     }
-    with pytest.raises(ty.Invalid):
+    with pytest.raises(ty.Error):
         mk_x(data)

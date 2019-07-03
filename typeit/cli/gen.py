@@ -15,21 +15,20 @@ def setup(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     return sub
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: argparse.Namespace, out_channel=sys.stdout) -> None:
     """ $ typeit gen <source> <target>
     """
     try:
         with Path(args.source).open('r') as f:
-            dict_struct = _read_data(f)
+            python_data = _read_data(f)
     except TypeError:
         # source is None, read from stdin
-        dict_struct = _read_data(sys.stdin)
+        python_data = _read_data(sys.stdin)
 
-    struct, overrides = cg.typeit(dict_struct)
-    python_src, __ = cg.codegen_py(struct, overrides)
-    sys.stdout.write(python_src)
-    sys.stdout.write('\n')
-    sys.exit(0)
+    typeit_schema = cg.typeit(python_data)
+    python_src, __ = cg.codegen_py(typeit_schema)
+    out_channel.write(python_src)
+    out_channel.write('\n')
 
 
 def _read_data(fd) -> Dict:

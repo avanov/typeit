@@ -1,4 +1,5 @@
 import typeit
+from typeit.schema.errors import InvalidData
 from typeit import utils
 from typing import NamedTuple, Sequence
 from typeit import type_constructor
@@ -27,7 +28,7 @@ def test_iter_invalid_data():
         items: Sequence[Item]
         item: Item
 
-    mk_x, dict_x = type_constructor(X)
+    mk_x, serialize_x = type_constructor(X)
 
     data = {
         'items': [
@@ -40,6 +41,6 @@ def test_iter_invalid_data():
 
     try:
         x = mk_x(data)
-    except typeit.Invalid as e:
-        for inv in utils.iter_invalid(e, data):
-            assert isinstance(inv, utils.InvalidData)
+    except typeit.Error as e:
+        for inv in e:
+            assert isinstance(inv, InvalidData)

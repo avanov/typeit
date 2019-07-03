@@ -36,7 +36,7 @@ def test_extending():
             r = (appstruct.currency, appstruct.amount)
             return super().serialize(node, r)
 
-    mk_x, dict_x = (
+    mk_x, serialize_x = (
         p.type_constructor
             & MoneySchema[Money] << schema.types.Enum(Currency) << schema.primitives.NonStrictStr()
             ^ X
@@ -48,4 +48,4 @@ def test_extending():
 
     x = mk_x(serialized)
     assert isinstance(x.x, Money)
-    assert dict_x(x) == serialized
+    assert serialize_x(x) == serialized

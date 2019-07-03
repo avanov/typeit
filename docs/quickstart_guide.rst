@@ -29,7 +29,7 @@ For example, try the following snippet in your shell:
 
 .. code-block:: bash
 
-    $ echo '{"first-name": "Hello", "initial": null, "last_name": World}' | typeit gen
+    $ echo '{"first-name": "Hello", "initial": null, "last_name": "World"}' | typeit gen
 
 
 You should see output similar to this:
@@ -51,7 +51,7 @@ You should see output similar to this:
     }
 
 
-    mk_main, dict_main = type_constructor & overrides ^ Main
+    mk_main, serialize_main = type_constructor & overrides ^ Main
 
 
 You can use this snippet as a starting point to improve further.
@@ -73,11 +73,11 @@ and rename the whole structure to better indicate the nature of the data:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 ``typeit`` will handle creation of the constructor ``mk_person :: Dict -> Person`` and the serializer
-``dict_person :: Person -> Dict`` for you.
+``serialize_person :: Person -> Dict`` for you.
 
 ``type_constructor & overrides`` produces a new type constructor that takes overrides into consideration,
 and ``type_constructor ^ Person`` reads as "type constructor applied to the Person structure" and essentially
@@ -107,7 +107,7 @@ our ``Person`` type:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 This is the way we can indicate that our Python structure has different field
@@ -145,7 +145,7 @@ any nested types, for instance:
     }
 
 
-    mk_person, dict_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
 Supported types
@@ -170,7 +170,7 @@ Supported types
 * ``typing_extensions.Literal``
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
-* Regular classes with annotated ``__init__`` method.
+* Regular classes with annotated ``__init__`` methods (`dataclasses.dataclass` are supported as a consequence of this).
 
 
 Sum Type
@@ -286,9 +286,9 @@ And, of course, you can use Sum Types in signatures of your serializable data:
     class Payments(NamedTuple):
         latest: Sequence[Payment]
 
-    mk_payments, dict_payments = type_constructor ^ Payments
+    mk_payments, serialize_payments = type_constructor ^ Payments
 
-    json_ready = dict_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
+    json_ready = serialize_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
     payments = mk_payments(json_ready)
 
 
@@ -309,4 +309,47 @@ TODO
 Handling errors
 ---------------
 
-TODO
+Below is a quick example of how value parsing errors can be handled:
+
+.. code-block:: python
+
+    from enum import Enum
+    from typing import NamedTuple, Sequence
+
+    import typeit
+
+
+    class ItemType(Enum):
+        ONE = 'one'
+        TWO = 'two'
+
+    class Item(NamedTuple):
+        val: ItemType
+
+    class X(NamedTuple):
+        items: Sequence[Item]
+        item: Item
+
+    mk_x, serialize_x = typeit.type_constructor ^ X
+
+    invalid_data = {
+        'items': [
+            {'val': 'one'},
+            {'val': 'two'},
+            {'val': 'three'},
+            {'val': 'four'},
+        ]
+    }
+
+    try:
+        x = mk_x(invalid_data)
+    except typeit.Error as err:
+        for e in err:
+            print(f'Invalid data for `{e.path}`: {e.reason}: {repr(e.sample)} was passed')
+
+
+.. code-block::
+
+    Invalid data for `items.2.val`: Invalid variant of ItemType: 'three' was passed
+    Invalid data for `items.3.val`: Invalid variant of ItemType: 'four' was passed
+    Invalid data for `item`: Required: None was passed
