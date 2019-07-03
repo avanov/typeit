@@ -30,5 +30,5 @@ def test_pyrsistent_types():
         'b': [{'x': 'x', 'y': 'y'}],
         'c': {'x': 'x', 'y': 'y'}
     }
-    with pytest.raises(ty.Invalid):
+    with pytest.raises(ty.Error):
         mk_x(data)

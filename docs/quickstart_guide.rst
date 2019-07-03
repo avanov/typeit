@@ -309,4 +309,47 @@ TODO
 Handling errors
 ---------------
 
-TODO
+Below is a quick example of how value parsing errors can be handled:
+
+.. code-block:: python
+
+    from enum import Enum
+    from typing import NamedTuple, Sequence
+
+    import typeit
+
+
+    class ItemType(Enum):
+        ONE = 'one'
+        TWO = 'two'
+
+    class Item(NamedTuple):
+        val: ItemType
+
+    class X(NamedTuple):
+        items: Sequence[Item]
+        item: Item
+
+    mk_x, serialize_x = typeit.type_constructor ^ X
+
+    invalid_data = {
+        'items': [
+            {'val': 'one'},
+            {'val': 'two'},
+            {'val': 'three'},
+            {'val': 'four'},
+        ]
+    }
+
+    try:
+        x = mk_x(invalid_data)
+    except typeit.Error as err:
+        for e in err:
+            print(f'Invalid data for `{e.path}`: {e.reason}: {repr(e.sample)} was passed')
+
+
+.. code-block::
+
+    Invalid data for `items.2.val`: Invalid variant of ItemType: 'three' was passed
+    Invalid data for `items.3.val`: Invalid variant of ItemType: 'four' was passed
+    Invalid data for `item`: Required: None was passed

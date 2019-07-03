@@ -1,3 +1,4 @@
+from functools import partial
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Callable,
@@ -19,6 +20,7 @@ from . import flags
 from . import schema
 from . import sums
 from .schema.meta import TypeExtension
+from .schema.errors import errors_aware_constructor
 from . import interface as iface
 
 
@@ -443,7 +445,10 @@ class _TypeConstructor:
             raise TypeError(
                 f'Cannot create a type constructor for {typ}: {e}'
             )
-        return schema_node.deserialize, schema_node.serialize
+        return (
+            partial(errors_aware_constructor, schema_node.deserialize),
+            partial(errors_aware_constructor, schema_node.serialize)
+        )
 
     def __and__(self, override: OverrideT) -> '_TypeConstructor':
         if isinstance(override, flags._Flag):

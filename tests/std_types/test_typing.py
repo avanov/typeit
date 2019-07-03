@@ -4,7 +4,7 @@ from typing import NamedTuple
 from typing_extensions import Literal
 
 import pytest
-from typeit import type_constructor, Invalid
+from typeit import type_constructor, Error
 
 
 def test_mapping():
@@ -69,11 +69,11 @@ def test_literals():
             'y': 'a',
         },
     ):
-        with pytest.raises(Invalid):
+        with pytest.raises(Error):
             mk_x(case)
 
     x = X(None, None, 3)
-    with pytest.raises(Invalid):
+    with pytest.raises(Error):
         serialize_x(x)
 
 
@@ -100,7 +100,7 @@ def test_literals_included():
         'z': [1, 1],
     })
 
-    with pytest.raises(Invalid):
+    with pytest.raises(Error):
         mk_x({
             'x': None,
             'y': None,

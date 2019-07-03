@@ -6,6 +6,7 @@ __pycache__/
 .idea/
 .cache/
 .pytest_cache/
+.DS_Store
 
 build/
 dist/

@@ -1,6 +1,5 @@
 from typing import NamedTuple, Union, Any, Dict
 
-import colander
 import pytest
 
 import typeit
@@ -32,7 +31,7 @@ def test_type_with_unions():
     assert data == serialize_x(x)
 
     assert mk_x({'x': None, 'y': 'y'}) == mk_x({'y': 'y'})
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         # this is not the same as mk_x({}),
         # the empty structure is passed as attribute x,
         # which should match with only an empty named tuple definition,

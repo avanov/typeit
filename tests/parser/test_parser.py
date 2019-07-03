@@ -47,10 +47,10 @@ def test_primitives_strictness():
         d=1,
     )
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         mk_x(data)
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         serialize_x(data_X)
 
     assert mk_x_nonstrict(data) == X(
@@ -135,7 +135,7 @@ def test_type_with_tuple_primitives():
     assert x.b == ()
     assert x.b == x.c
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         # 'abc' is not int
         x = mk_x({
             'a': ['value', 'abc'],
@@ -143,14 +143,14 @@ def test_type_with_tuple_primitives():
             'c': [],
         })
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         # .c field is required
         x = mk_x({
             'a': ['value', 5],
             'b': [],
         })
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         # .c field is required to be fixed sequence
         x = mk_x({
             'a': ['value', 'abc'],
@@ -212,7 +212,7 @@ def test_enum_like_types():
     assert isinstance(x.e, Enums)
     assert data == serialize_x(x)
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         x = mk_x({'e': None})
 
 
@@ -268,7 +268,7 @@ def test_sum_types_as_union():
     assert x.x.name == 'Name'
     assert serialize_x(x) == x_data
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         # version is missing
         x = mk_x({
             'x': ('right', {
@@ -314,7 +314,7 @@ def test_type_with_empty_enum_variant():
         x = mk_x({'x': 1, 'y': variant.value})
         assert x.y is variant
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         x = mk_x({'x': 1, 'y': None})
 
 
@@ -401,10 +401,10 @@ def test_type_with_dict():
 
     mk_x, serializer = p.type_constructor(X)
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         mk_x({})
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         mk_x({'x': 1})
 
     x = mk_x({'x': 1, 'y': {'x': 1}})
@@ -417,7 +417,7 @@ def test_name_overrides():
 
     data = {'my-x': 1}
 
-    with pytest.raises(typeit.Invalid):
+    with pytest.raises(typeit.Error):
         mk_x, serialize_x = p.type_constructor ^ X
         mk_x(data)
 
