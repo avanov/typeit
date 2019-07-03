@@ -4,15 +4,16 @@ from typing import get_type_hints
 import pytest
 
 from typeit import codegen as cg, parser as p
+from typeit.codegen import TypeitSchema
 
 
 def test_parser_empty_struct():
     struct = {}
-    parsed, overrides = cg.parse(struct)
+    parsed, overrides = cg.parse_mapping(struct)
     struct, overrides_ = cg.construct_type('main', parsed)
     overrides = overrides.update(overrides_)
     assert overrides == {}
-    python_src, __ = cg.codegen_py(struct, overrides, False)
+    python_src, __ = cg.codegen_py(TypeitSchema(struct, overrides), False)
     assert python_src == "class Main(NamedTuple):\n    ...\n\n"
 
 
@@ -26,14 +27,25 @@ def test_typeit(data):
     cg.typeit(data)
 
 
+
+def test_parse_structure_with_sequences():
+    data = """{"x": [[{"y": "z"}]]}"""
+    github_pr_dict = json.loads(data)
+    parsed, overrides = cg.parse_mapping(github_pr_dict)
+    typ, overrides_ = cg.construct_type('main', parsed)
+    overrides = overrides.update(overrides_)
+    python_source, __ = cg.codegen_py(TypeitSchema(typ, overrides))
+    assert "x: Sequence[Sequence[X]]" in python_source
+
+
 def test_parser_github_pull_request_payload():
     data = GITHUB_PR_PAYLOAD_JSON
     github_pr_dict = json.loads(data)
-    parsed, overrides = cg.parse(github_pr_dict)
+    parsed, overrides = cg.parse_mapping(github_pr_dict)
     typ, overrides_ = cg.construct_type('main', parsed)
     overrides = overrides.update(overrides_)
 
-    python_source, __ = cg.codegen_py(typ, overrides)
+    python_source, __ = cg.codegen_py(TypeitSchema(typ, overrides))
     assert 'overrides' in python_source
     assert "PullRequest.links: '_links'," in python_source
     assert 'mk_main, serialize_main = type_constructor & overrides ^ Main' in python_source

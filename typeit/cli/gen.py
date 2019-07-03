@@ -20,13 +20,13 @@ def main(args: argparse.Namespace, out_channel=sys.stdout) -> None:
     """
     try:
         with Path(args.source).open('r') as f:
-            dict_struct = _read_data(f)
+            python_data = _read_data(f)
     except TypeError:
         # source is None, read from stdin
-        dict_struct = _read_data(sys.stdin)
+        python_data = _read_data(sys.stdin)
 
-    struct, overrides = cg.typeit(dict_struct)
-    python_src, __ = cg.codegen_py(struct, overrides)
+    typeit_schema = cg.typeit(python_data)
+    python_src, __ = cg.codegen_py(typeit_schema)
     out_channel.write(python_src)
     out_channel.write('\n')
 

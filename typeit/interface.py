@@ -16,3 +16,7 @@ class IType(Protocol):
 
     def _asdict(self) -> Mapping[str, Any]:
         ...
+
+
+class INamedTuple(Protocol):
+    _name: str
