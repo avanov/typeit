@@ -148,6 +148,31 @@ any nested types, for instance:
     mk_person, serialize_person = type_constructor & overrides ^ Person
 
 
+Handling errors
+---------------
+
+Let's take the snippet above and use it with incorrect input data. Here is how we would
+handle the errors:
+
+.. code-block:: python
+
+    invalid_data = {'initial': True}
+
+    try:
+        person = mk_person(invalid_data)
+    except typeit.Error as err:
+        for e in err:
+            print(f'Invalid data for `{e.path}`; {e.reason}: {repr(e.sample)} was passed')
+
+If you run it, you will see an output similar to this::
+
+    Invalid data for `first-name`; Required: None was passed
+    Invalid data for `initial`; None of the expected variants matches provided data: True was passed
+    Invalid data for `last_name`; Required: None was passed
+
+Instances of ``typeit.Error`` adhere iterator interface that you can use to iterate over all
+parsing errors that caused the exception.
+
 Supported types
 ---------------
 
@@ -295,61 +320,25 @@ And, of course, you can use Sum Types in signatures of your serializable data:
 Flags
 -----
 
-``NON_STRICT_PRIMITIVES`` -
+``typeit.flags.NON_STRICT_PRIMITIVES`` -
 disables strict checking of primitive types. With this flag, a type constructor for a structure
 with a ``x: int`` attribute annotation would allow input values of ``x`` to be strings that could be parsed
 as integer numbers. Without this flag, the type constructor will reject those values. The same rule is applicable
-to combinations of floats, ints, and bools.
+to combinations of floats, ints, and bools:
+
+.. code-block:: python
+
+    construct, deconstruct = type_constructor ^ int
+    nonstrict_construct, nonstrict_deconstruct = type_constructor & NON_STRICT_PRIMITIVES ^ int
+
+    construct('1')            # raises typeit.Error
+    construct(1)              # OK
+    nonstrict_construct('1')  # OK
+    nonstrict_construct(1)    # OK
+
 
 Extensions
 ----------
 
 TODO
 
-Handling errors
----------------
-
-Below is a quick example of how value parsing errors can be handled:
-
-.. code-block:: python
-
-    from enum import Enum
-    from typing import NamedTuple, Sequence
-
-    import typeit
-
-
-    class ItemType(Enum):
-        ONE = 'one'
-        TWO = 'two'
-
-    class Item(NamedTuple):
-        val: ItemType
-
-    class X(NamedTuple):
-        items: Sequence[Item]
-        item: Item
-
-    mk_x, serialize_x = typeit.type_constructor ^ X
-
-    invalid_data = {
-        'items': [
-            {'val': 'one'},
-            {'val': 'two'},
-            {'val': 'three'},
-            {'val': 'four'},
-        ]
-    }
-
-    try:
-        x = mk_x(invalid_data)
-    except typeit.Error as err:
-        for e in err:
-            print(f'Invalid data for `{e.path}`: {e.reason}: {repr(e.sample)} was passed')
-
-
-.. code-block::
-
-    Invalid data for `items.2.val`: Invalid variant of ItemType: 'three' was passed
-    Invalid data for `items.3.val`: Invalid variant of ItemType: 'four' was passed
-    Invalid data for `item`: Required: None was passed

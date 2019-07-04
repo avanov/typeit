@@ -140,7 +140,7 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided data.',
+            'None of the expected variants matches provided data',
             cstruct
         )
 
@@ -154,7 +154,7 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided structure.',
+            'None of the expected variants matches provided structure',
             appstruct
         )
 
@@ -206,7 +206,7 @@ class Literal(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             return cstruct
         raise Invalid(
             node,
-            'None of the Literal variants matches provided data.',
+            'None of the Literal variants matches provided data',
             cstruct
         )
 
@@ -217,7 +217,7 @@ class Literal(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             return appstruct
         raise Invalid(
             node,
-            'None of the Literal variants matches provided data.',
+            'None of the Literal variants matches provided data',
             appstruct
         )
 
@@ -284,7 +284,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided data.',
+            'None of the expected variants matches provided data',
             cstruct
         )
 
@@ -351,7 +351,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            'None of the variants matches provided structure.',
+            'None of the expected variants matches provided structure',
             appstruct
         )
 

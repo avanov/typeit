@@ -53,6 +53,10 @@ def iter_invalid(error: Invalid,
         # traverse data for a value that caused an error
         traversed_value: Union[None, iface.ITraversable] = data
         for i in e_parts:
+            # root object is always an empty string,
+            # it may happen with type_constructor ^ <python built-in type>
+            if not i:
+                break
             try:
                 traversed_value = traversed_value[i]
             except KeyError:
