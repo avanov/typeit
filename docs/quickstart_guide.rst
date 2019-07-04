@@ -1,16 +1,3 @@
-Quickstart Guide
-================
-
-
-.. CAUTION::
-
-    The project is in a beta development status, and a few public
-    APIs may change in a backward-incompatible manner.
-
-
-``typeit`` supports Python 3.6+.
-
-
 Installation
 ------------
 
@@ -36,7 +23,7 @@ You should see output similar to this:
 
 .. code-block:: python
 
-    from typing import NamedTuple, Dict, Any, List, Optional
+    from typing import Any, NamedTuple, Optional, Sequence
     from typeit import type_constructor
 
 
@@ -172,6 +159,27 @@ If you run it, you will see an output similar to this::
 
 Instances of ``typeit.Error`` adhere iterator interface that you can use to iterate over all
 parsing errors that caused the exception.
+
+
+Constructor Flags
+-----------------
+
+``typeit.flags.NON_STRICT_PRIMITIVES`` -
+disables strict checking of primitive types. With this flag, a type constructor for a structure
+with a ``x: int`` attribute annotation would allow input values of ``x`` to be strings that could be parsed
+as integer numbers. Without this flag, the type constructor will reject those values. The same rule is applicable
+to combinations of floats, ints, and bools:
+
+.. code-block:: python
+
+    construct, deconstruct = type_constructor ^ int
+    nonstrict_construct, nonstrict_deconstruct = type_constructor & NON_STRICT_PRIMITIVES ^ int
+
+    construct('1')            # raises typeit.Error
+    construct(1)              # OK
+    nonstrict_construct('1')  # OK
+    nonstrict_construct(1)    # OK
+
 
 Supported types
 ---------------
@@ -315,26 +323,6 @@ And, of course, you can use Sum Types in signatures of your serializable data:
 
     json_ready = serialize_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
     payments = mk_payments(json_ready)
-
-
-Flags
------
-
-``typeit.flags.NON_STRICT_PRIMITIVES`` -
-disables strict checking of primitive types. With this flag, a type constructor for a structure
-with a ``x: int`` attribute annotation would allow input values of ``x`` to be strings that could be parsed
-as integer numbers. Without this flag, the type constructor will reject those values. The same rule is applicable
-to combinations of floats, ints, and bools:
-
-.. code-block:: python
-
-    construct, deconstruct = type_constructor ^ int
-    nonstrict_construct, nonstrict_deconstruct = type_constructor & NON_STRICT_PRIMITIVES ^ int
-
-    construct('1')            # raises typeit.Error
-    construct(1)              # OK
-    nonstrict_construct('1')  # OK
-    nonstrict_construct(1)    # OK
 
 
 Extensions
