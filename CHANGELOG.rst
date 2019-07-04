@@ -2,13 +2,17 @@
 CHANGELOG
 =========
 
+0.14.1
+==============
+
+* Fix root object validation error handling
+
 0.14.0
 ==============
 
 * Support builtins parsing #24
 * Codegen for Sequence root objects #37
 * [api breaking change] simpler error handling interface
-
 
 0.13.0
 ==============

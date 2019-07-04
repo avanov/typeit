@@ -44,3 +44,11 @@ def test_iter_invalid_data():
     except typeit.Error as e:
         for inv in e:
             assert isinstance(inv, InvalidData)
+
+
+def test_invalid_root_data():
+    mk_int, serialize_int = typeit.type_constructor ^ int
+    try:
+        mk_int('1')
+    except typeit.Error as e:
+        x = list(e)  # this triggers root traversal

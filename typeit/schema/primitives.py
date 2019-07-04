@@ -8,20 +8,20 @@ from .errors import Invalid
 Null = col.null
 
 
-def _strict_deserialize(node, rval, cstruct):
-    if rval in (Null, None):
-        return rval
-    if type(rval) is not type(cstruct):
+def _strict_deserialize(node, allowed_type: t.Type, cstruct):
+    if cstruct in (Null, None):
+        return cstruct
+    if type(cstruct) is not allowed_type:
         raise Invalid(
             node,
             f'Primitive values should adhere strict type semantics: '
-            f'{type(rval)} was passed, {type(cstruct)} is expected by deserializer.',
+            f'{type(cstruct)} was passed, {allowed_type} is expected by deserializer.',
             cstruct
         )
-    return rval
+    return cstruct
 
 
-def _strict_serialize(node, allowed_type, appstruct):
+def _strict_serialize(node, allowed_type: t.Type, appstruct):
     if appstruct in (Null, None):
         return appstruct
 
@@ -61,8 +61,8 @@ class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
 class Int(NonStrictInt):
 
     def deserialize(self, node, cstruct):
-        r = super().deserialize(node, cstruct)
-        return _strict_deserialize(node, r, cstruct)
+        cstruct = _strict_deserialize(node, int, cstruct)
+        return super().deserialize(node, cstruct)
 
     def serialize(self, node, appstruct):
         """ Default colander integer serializer returns a string representation
@@ -87,8 +87,8 @@ class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
 class Bool(NonStrictBool):
 
     def deserialize(self, node, cstruct):
-        r = super().deserialize(node, cstruct)
-        return _strict_deserialize(node, r, cstruct)
+        cstruct = _strict_deserialize(node, bool, cstruct)
+        return super().deserialize(node, cstruct)
 
     def serialize(self, node, appstruct):
         """ Default colander bool serializer returns a string representation
@@ -114,8 +114,8 @@ class NonStrictStr(col.Str, metaclass=SubscriptableSchemaTypeM):
 class Str(NonStrictStr):
 
     def deserialize(self, node, cstruct):
-        r = super().deserialize(node, cstruct)
-        return _strict_deserialize(node, r, cstruct)
+        cstruct = _strict_deserialize(node, str, cstruct)
+        return super().deserialize(node, cstruct)
 
     def serialize(self, node, appstruct):
         """ Default colander str serializer serializes None as 'None',
@@ -138,8 +138,8 @@ class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
 class Float(NonStrictFloat):
 
     def deserialize(self, node, cstruct):
-        r = super().deserialize(node, cstruct)
-        return _strict_deserialize(node, r, cstruct)
+        cstruct = _strict_deserialize(node, float, cstruct)
+        return super().deserialize(node, cstruct)
 
     def serialize(self, node, appstruct):
         appstruct = _strict_serialize(node, float, appstruct)
