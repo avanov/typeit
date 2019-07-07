@@ -4,7 +4,7 @@ from money.currency import Currency
 from money.money import Money
 
 import typeit
-from typeit import schema, parser as p
+from typeit import schema
 
 
 def test_extending():
@@ -19,12 +19,12 @@ def test_extending():
             try:
                 currency = Currency(r[0])
             except ValueError:
-                raise typeit.Invalid(node, f'Invalid currency token in {r}', cstruct)
+                raise schema.Invalid(node, f'Invalid currency token in {r}', cstruct)
 
             try:
                 rv = Money(r[1], currency)
             except:
-                raise typeit.Invalid(node, f'Invalid amount in {r}', cstruct)
+                raise schema.Invalid(node, f'Invalid amount in {r}', cstruct)
 
             return rv
 
@@ -37,7 +37,7 @@ def test_extending():
             return super().serialize(node, r)
 
     mk_x, serialize_x = (
-        p.type_constructor
+            typeit.type_constructor
             & MoneySchema[Money] << schema.types.Enum(Currency) << schema.primitives.NonStrictStr()
             ^ X
     )

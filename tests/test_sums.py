@@ -139,7 +139,7 @@ def test_sums_as_dict():
             b: bool
 
     mk_x, serialize_x = (
-        typeit.type_constructor & typeit.flags.SUM_TYPES_AS_DICT << '_type' ^ X
+            typeit.type_constructor & typeit.flags.SUM_TYPE_DICT << '_type' ^ X
     )
 
     data = {

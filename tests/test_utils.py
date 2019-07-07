@@ -2,7 +2,6 @@ import typeit
 from typeit.schema.errors import InvalidData
 from typeit import utils
 from typing import NamedTuple, Sequence
-from typeit import type_constructor
 from enum import Enum
 
 
@@ -28,7 +27,7 @@ def test_iter_invalid_data():
         items: Sequence[Item]
         item: Item
 
-    mk_x, serialize_x = type_constructor(X)
+    mk_x, serialize_x = typeit.type_constructor(X)
 
     data = {
         'items': [

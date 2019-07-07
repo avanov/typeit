@@ -3,7 +3,8 @@ from typing import get_type_hints
 
 import pytest
 
-from typeit import codegen as cg, parser as p
+import typeit
+from typeit import codegen as cg
 from typeit.codegen import TypeitSchema
 
 
@@ -55,7 +56,7 @@ def test_parser_github_pull_request_payload():
     assert PullRequestType.links in overrides
     assert overrides[PullRequestType.links] == '_links'
 
-    constructor, serializer = p.type_constructor(
+    constructor, serializer = typeit.type_constructor(
         typ,
         overrides=overrides
     )

@@ -19,7 +19,7 @@ def test_type_with_unions():
         x: Union[None, VariantA, VariantB]
         y: Union[str, VariantA]
 
-    mk_x, serialize_x = p.type_constructor(X)
+    mk_x, serialize_x = typeit.type_constructor(X)
 
     x = mk_x({'x': {'variant_a': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantA)

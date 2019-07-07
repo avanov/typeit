@@ -7,6 +7,7 @@ CHANGELOG
 
 * SumType from/to mapping #43
 * Support explicit tags for SumType Variants #32
+* Parser memoization #38
 
 
 0.14.1

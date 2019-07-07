@@ -1,3 +1,5 @@
+.. _Cookbook:
+
 Structuring Docker Compose Config
 =================================
 
