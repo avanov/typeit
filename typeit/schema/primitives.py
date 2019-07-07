@@ -182,3 +182,8 @@ NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, NonStrictPrimitiveSchemaTyp
     float: NonStrictFloat(),
     bool: NonStrictBool(),
 }
+
+PRIMITIVES_REGISTRY: t.Mapping[bool, t.Mapping[t.Type, NonStrictPrimitiveSchemaTypeT]] = {
+    True: NON_STRICT_BUILTIN_TO_SCHEMA_TYPE,
+    False: BUILTIN_TO_SCHEMA_TYPE
+}

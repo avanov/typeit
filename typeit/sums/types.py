@@ -1,6 +1,5 @@
 from .impl import SumType
 
-
 class Either(SumType):
     class Left: ...
 

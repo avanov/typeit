@@ -75,4 +75,4 @@ def errors_aware_constructor(construct: Callable[[T], S], data: T) -> S:
         return construct(data)
     except Invalid as e:
         raise Error(validation_error=e,
-                    sample_data=data) from None
+                    sample_data=data) from e

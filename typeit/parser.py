@@ -58,10 +58,9 @@ def _maybe_node_for_primitive(
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
-    if flags.NON_STRICT_PRIMITIVES in overrides:
-        registry = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
-    else:
-        registry = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
+    registry = schema.primitives.PRIMITIVES_REGISTRY[
+        flags.NON_STRICT_PRIMITIVES in overrides
+    ]
 
     try:
         schema_type = registry[typ]
@@ -135,10 +134,9 @@ def _maybe_node_for_union(
                 node.missing = None
             variant_nodes.append((variant, node))
 
-        if flags.NON_STRICT_PRIMITIVES in overrides:
-            primitive_types = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
-        else:
-            primitive_types = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
+        primitive_types = schema.primitives.PRIMITIVES_REGISTRY[
+            flags.NON_STRICT_PRIMITIVES in overrides
+        ]
 
         union_node = schema.nodes.SchemaNode(
             schema.types.Union(variant_nodes=variant_nodes,
@@ -164,7 +162,11 @@ def _maybe_node_for_sum_type(
             node = decide_node_type(variant.__variant_meta__.constructor, overrides)
             variant_nodes.append((variant, node))
         sum_node = schema.nodes.SchemaNode(
-            schema.types.Sum(typ=typ, variant_nodes=variant_nodes)
+            schema.types.Sum(
+                typ=typ,
+                variant_nodes=variant_nodes,
+                as_dict_key=overrides.get(flags.SUM_TYPES_AS_DICT),
+            )
         )
         return sum_node
     return None
@@ -463,10 +465,18 @@ class _TypeConstructor:
     def __and__(self, override: OverrideT) -> '_TypeConstructor':
         if isinstance(override, flags._Flag):
             overrides = self.overrides.set(override, True)
+
         elif isinstance(override, schema.meta.TypeExtension):
             overrides = self.overrides.set(override.typ, override)
+
+        elif isinstance(override, tuple):
+            # override is a flag with extra settings
+            overrides = self.overrides.set(override[0], override[1])
+
         else:
+            # override is a field mapping
             overrides = self.overrides.update(override)
+
         return self.__class__(overrides=overrides)
 
     def __xor__(self, typ: Type[T]) -> TypeTools:
