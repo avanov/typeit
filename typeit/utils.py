@@ -18,3 +18,14 @@ def normalize_name(name: str,
 
 def is_named_tuple(typ: Type[Any]) -> bool:
     return hasattr(typ, '_fields')
+
+
+def clone_schema_node(node):
+    """ Clonning the node and reassigning the same children,
+    because clonning is recursive, but we are only interested
+    in new version of the outermost schema node, the children nodes
+    should be shared to avoid unnecessary duplicates.
+    """
+    new_node = node.clone()
+    new_node.children = node.children
+    return new_node

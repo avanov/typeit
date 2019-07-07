@@ -26,11 +26,15 @@ Typeit
 
 `typeit` brings typed data into your project.
 
+.. code-block:: bash
+
+    $ echo '{"first-name": "Hello", "initial": null, "last_name": "World"}' | typeit gen
+
 
 Documentation
 -------------
 
-Documentation is hosted on ReadTheDocs: https://typeit.readthedocs.io/en/latest/
+Documentation is hosted on ReadTheDocs: https://typeit.readthedocs.io/en/develop/
 
 
 Test framework

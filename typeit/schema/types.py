@@ -101,10 +101,12 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                 t.Type, t.Union[nodes.SchemaNode, col.SequenceSchema, col.TupleSchema]
             ],
         ],
+        as_dict_key: t.Optional[str] = None,
     ) -> None:
         super().__init__()
         self.typ = typ
         self.variant_nodes = variant_nodes
+        self.as_dict_key = as_dict_key
         self.variant_schema_types: t.Set[col.SchemaType] = {
             x.typ for _, x in variant_nodes
         }
@@ -115,14 +117,33 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             # therefore we must handle both
             return cstruct
 
-        try:
-            tag, payload = cstruct
-        except ValueError:
-            raise Invalid(
-                node,
-                'Incorrect data layout for this type.',
-                cstruct
-            )
+        if self.as_dict_key:
+            try:
+                tag = cstruct[self.as_dict_key]
+            except (KeyError, ValueError) as e:
+                raise Invalid(
+                    node,
+                    f'Incorrect data layout for this type: '
+                    f'tag is not present as key "{self.as_dict_key}"',
+                    cstruct
+                ) from e
+            try:
+                payload = {k: v for k, v in cstruct.items() if k != self.as_dict_key}
+            except (AttributeError, TypeError) as e:
+                raise Invalid(
+                    node,
+                    'Incorrect data layout for this type: payload is not a mapping',
+                    cstruct
+                ) from e
+        else:
+            try:
+                tag, payload = cstruct
+            except ValueError:
+                raise Invalid(
+                    node,
+                    'Incorrect data layout for this type.',
+                    cstruct
+                )
         # next, iterate over available variants and return the first
         # matched structure.
         for var_type, var_schema in self.variant_nodes:
@@ -130,10 +151,11 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                 continue
             try:
                 variant_struct = var_schema.deserialize(payload)
-            except Invalid:
+            except Invalid as e:
                 raise Invalid(
                     node,
-                    'Incorrect payload format.',
+                    f'Incorrect payload format for '
+                    f'{var_type.__variant_meta__.variant_of.__name__}.{var_type.__variant_meta__.variant_name}',
                     cstruct
                 )
             return var_type(**variant_struct._asdict())
@@ -150,7 +172,12 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         for var_type, var_schema in self.variant_nodes:
             if isinstance(appstruct, var_type):
-                return (var_type.__variant_meta__.value, var_schema.serialize(appstruct))
+                if self.as_dict_key:
+                    rv = var_schema.serialize(appstruct)
+                    rv[self.as_dict_key] = var_type.__variant_meta__.value
+                    return rv
+                else:
+                    return (var_type.__variant_meta__.value, var_schema.serialize(appstruct))
 
         raise Invalid(
             node,

@@ -1,16 +1,3 @@
-Quickstart Guide
-================
-
-
-.. CAUTION::
-
-    The project is in a beta development status, and a few public
-    APIs may change in a backward-incompatible manner.
-
-
-``typeit`` supports Python 3.6+.
-
-
 Installation
 ------------
 
@@ -36,7 +23,7 @@ You should see output similar to this:
 
 .. code-block:: python
 
-    from typing import NamedTuple, Dict, Any, List, Optional
+    from typing import Any, NamedTuple, Optional, Sequence
     from typeit import type_constructor
 
 
@@ -172,6 +159,7 @@ If you run it, you will see an output similar to this::
 
 Instances of ``typeit.Error`` adhere iterator interface that you can use to iterate over all
 parsing errors that caused the exception.
+
 
 Supported types
 ---------------
@@ -317,8 +305,8 @@ And, of course, you can use Sum Types in signatures of your serializable data:
     payments = mk_payments(json_ready)
 
 
-Flags
------
+Constructor Flags
+-----------------
 
 ``typeit.flags.NON_STRICT_PRIMITIVES`` -
 disables strict checking of primitive types. With this flag, a type constructor for a structure
@@ -337,8 +325,59 @@ to combinations of floats, ints, and bools:
     nonstrict_construct(1)    # OK
 
 
+``typeit.flags.SUM_TYPE_DICT`` - switches the way SumType is parsed and serialized. By default,
+SumType is represented as a tuple of ``(<tag>, <payload>)`` in a serialized form. With this flag,
+it will be represented and parsed from a dictionary:
+
+.. code-block:: python
+
+    {
+        <TAG_KEY>: <tag>,
+        <payload>
+    }
+
+i.e. the tag and the payload attributes will be merged into a single mapping, where
+``<TAG_KEY>`` is the key by which the ``<tag>`` could be retrieved and set while
+parsing and serializing. The default value for ``TAG_KEY`` is ``type``, but you can
+override it with the following syntax:
+
+
+.. code-block:: python
+
+    # Use "_type" as the key by which SumType's tag can be found in the mapping
+    mk_sum, serialize_sum = type_constructor & SUM_TYPE_DICT << '_type' ^ int
+
+
+Here's an example how this flag changes the behaviour of the parser:
+
+.. code-block:: python
+
+    >>> class Payment(typeit.sums.SumType):
+    ...    class Cash:
+    ...        amount: str
+    ...    class Card:
+    ...        number: str
+    ...        amount: str
+    ...
+    >>> _, serialize_std_payment = typeit.type_constructor ^ Payment
+    >>> _, serialize_dict_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT ^ Payment
+    >>> _, serialize_dict_v2_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT << '$type' ^ Payment
+    >>>
+    >>> payment = Payment.Card(number='1111 1111 1111 1111', amount='10')
+    >>>
+    >>> print(serialize_std_payment(payment))
+    ('card', {'number': '1111 1111 1111 1111', 'amount': '10'})
+
+    >>> print(serialize_dict_payment(payment))
+    {'type': 'card', 'number': '1111 1111 1111 1111', 'amount': '10'}
+
+    >>> print(serialize_dict_v2_payment(payment))
+    {'$type': 'card', 'number': '1111 1111 1111 1111', 'amount': '10'}
+
+
+
 Extensions
 ----------
 
-TODO
+See _Cookbook.
 

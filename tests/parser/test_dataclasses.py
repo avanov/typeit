@@ -1,8 +1,8 @@
+import typeit
 from typeit.compat import PY_VERSION
 
 if PY_VERSION >= (3, 7):
     from dataclasses import dataclass
-    from typeit import parser as p
 
 
     def test_dataclasses():
@@ -13,7 +13,7 @@ if PY_VERSION >= (3, 7):
             unit_price: float
             quantity_on_hand: int = 0
 
-        mk_inv, serialize_inv = p.type_constructor(InventoryItem)
+        mk_inv, serialize_inv = typeit.type_constructor(InventoryItem)
 
         serialized = {
             'name': 'test',

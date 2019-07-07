@@ -377,7 +377,7 @@ FIELD_TYPE_CLARIFIERS: Mapping[Type, ClarifierCallableT] = {
 
 
 def construct_type(name: str,
-                   fields: Sequence[FieldDefinition]) -> Tuple[Type, OverridesT]:
+                   fields: Sequence[FieldDefinition]) -> Tuple[Type[Any], OverridesT]:
     """ Generates a NamedTuple type structure out of provided
     field definitions.
 

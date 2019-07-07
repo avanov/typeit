@@ -59,10 +59,15 @@ def iter_invalid(error: Invalid,
                 break
             try:
                 traversed_value = traversed_value[i]
-            except KeyError:
-                # handles the case when key is missing from payload
-                traversed_value = None
-                break
+            except (KeyError, TypeError):
+                # type error may happen when namedtuple is accessed
+                # as a tuple but the index is a string value
+                try:
+                    traversed_value = getattr(traversed_value, i)
+                except AttributeError:
+                    # handles the case when key is missing from payload
+                    traversed_value = None
+                    break
         yield InvalidData(path=e_path, reason=msg, sample=traversed_value)
 
 
@@ -75,4 +80,4 @@ def errors_aware_constructor(construct: Callable[[T], S], data: T) -> S:
         return construct(data)
     except Invalid as e:
         raise Error(validation_error=e,
-                    sample_data=data) from None
+                    sample_data=data) from e

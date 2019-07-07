@@ -2,7 +2,6 @@ import typeit
 from typeit.schema.errors import InvalidData
 from typeit import utils
 from typing import NamedTuple, Sequence
-from typeit import type_constructor
 from enum import Enum
 
 
@@ -28,7 +27,7 @@ def test_iter_invalid_data():
         items: Sequence[Item]
         item: Item
 
-    mk_x, serialize_x = type_constructor(X)
+    mk_x, serialize_x = typeit.type_constructor(X)
 
     data = {
         'items': [
@@ -52,3 +51,28 @@ def test_invalid_root_data():
         mk_int('1')
     except typeit.Error as e:
         x = list(e)  # this triggers root traversal
+
+
+def test_iter_invalid_serialize():
+    mk_int, serialize_int = typeit.type_constructor ^ int
+    try:
+        serialize_int('1')
+    except typeit.Error as e:
+        x = list(e)
+
+    class X(NamedTuple):
+        a: int
+        b: bool
+
+    mk_x, serialize_x = typeit.type_constructor ^ X
+
+    data = {
+        'a': 1,
+        'b': True,
+    }
+    x = mk_x(data)
+    x = x._replace(b=1)
+    try:
+        serialize_x(x)
+    except typeit.Error as e:
+        x = list(e)

@@ -1,10 +1,10 @@
-from functools import partial
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
-    Dict, Callable,
-    Sequence, get_type_hints,
+    Dict, Sequence, get_type_hints,
     MutableSet, TypeVar, FrozenSet, Mapping,
 )
+
+from pyrsistent.typing import PMap
 from typing_extensions import Literal
 import collections
 
@@ -13,18 +13,18 @@ import typing_inspect as insp
 from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
 
-from .definitions import OverridesT, NO_OVERRIDES
-from .utils import is_named_tuple
+from .definitions import OverridesT
+from .utils import is_named_tuple, clone_schema_node
 from . import compat
 from . import flags
 from . import schema
 from . import sums
 from .schema.meta import TypeExtension
-from .schema.errors import errors_aware_constructor
 from . import interface as iface
 
 
 T = TypeVar('T')
+MemoType = TypeVar('MemoType')
 
 NoneType = type(None)
 
@@ -44,72 +44,77 @@ def inner_type_boundaries(typ: Type) -> Tuple:
 
 def _maybe_node_for_none(
     typ: Union[Type[iface.IType], Any],
-    overrides: OverridesT
-) -> Optional[schema.nodes.SchemaNode]:
+    overrides: OverridesT,
+    memo: MemoType
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     if typ is None:
-        return _maybe_node_for_literal(Literal[None], overrides)
-    return None
+        return _maybe_node_for_literal(Literal[None], overrides, memo)
+    return None, memo
 
 
 def _maybe_node_for_primitive(
     typ: Union[Type[iface.IType], Any],
-    overrides: OverridesT
-) -> Optional[schema.nodes.SchemaNode]:
+    overrides: OverridesT,
+    memo: MemoType,
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
-    if flags.NON_STRICT_PRIMITIVES in overrides:
-        registry = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
-    else:
-        registry = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
+    registry = schema.primitives.PRIMITIVES_REGISTRY[
+        flags.NON_STRICT_PRIMITIVES in overrides
+    ]
 
     try:
         schema_type = registry[typ]
     except KeyError:
-        return None
+        return None, memo
 
-    return schema.nodes.SchemaNode(schema_type)
+    return schema.nodes.SchemaNode(schema_type), memo
 
 
 def _maybe_node_for_type_var(
     typ: Type,
-    overrides: OverridesT
-) -> Optional[schema.nodes.SchemaNode]:
+    overrides: OverridesT,
+    memo: MemoType,
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ When we parse Sequence and List definitions without
     clarified item type, it is possible that this item is defined
     as TypeVar. Since it's an indicator of a generic collection,
     we can treat it as typing.Any.
     """
     if isinstance(typ, TypeVar):
-        return _maybe_node_for_primitive(Any, overrides)
-    return None
+        return _maybe_node_for_primitive(Any, overrides, memo)
+    return None, memo
 
 
 def _maybe_node_for_subclass_based(
     typ: Type[iface.IType],
-    overrides: OverridesT
-) -> Optional[schema.nodes.SchemaNode]:
+    overrides: OverridesT,
+    memo: MemoType,
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     for subclasses, schema_typ in schema.types.SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
         try:
             is_target = issubclass(typ, subclasses)
         except TypeError:
             # TypeError: issubclass() arg 1 must be a class
             # ``typ`` is not a class, skip the rest
-            return None
+            return None, memo
         else:
             if is_target:
-                return schema.nodes.SchemaNode(schema_typ(typ, allow_empty=True))
-    return None
+                rv = schema.nodes.SchemaNode(schema_typ(typ, allow_empty=True))
+                return rv, memo
+    return None, memo
 
 
 def _maybe_node_for_union(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Union,
     })
-) -> Optional[schema.nodes.SchemaNode]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -119,10 +124,11 @@ def _maybe_node_for_union(
         variants = inner_type_boundaries(typ)
         if variants in ((NoneClass, Any), (Any, NoneClass)):
             # Case for Optional[Any] and Union[None, Any] notations
-            return schema.nodes.SchemaNode(
+            rv = schema.nodes.SchemaNode(
                 schema.primitives.AcceptEverything(),
                 missing=None
             )
+            return rv, memo
 
         allow_empty = NoneClass in variants
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
@@ -130,15 +136,17 @@ def _maybe_node_for_union(
         for variant in variants:
             if variant is NoneClass:
                 continue
-            node = decide_node_type(variant, overrides)
+            node, memo = decide_node_type(variant, overrides, memo)
             if allow_empty:
+                # clonning because we mutate it next, and the node
+                # might be already from the cache
+                node = clone_schema_node(node)
                 node.missing = None
             variant_nodes.append((variant, node))
 
-        if flags.NON_STRICT_PRIMITIVES in overrides:
-            primitive_types = schema.primitives.NON_STRICT_BUILTIN_TO_SCHEMA_TYPE
-        else:
-            primitive_types = schema.primitives.BUILTIN_TO_SCHEMA_TYPE
+        primitive_types = schema.primitives.PRIMITIVES_REGISTRY[
+            flags.NON_STRICT_PRIMITIVES in overrides
+        ]
 
         union_node = schema.nodes.SchemaNode(
             schema.types.Union(variant_nodes=variant_nodes,
@@ -146,14 +154,15 @@ def _maybe_node_for_union(
         )
         if allow_empty:
             union_node.missing = None
-        return union_node
+        return union_node, memo
 
-    return None
+    return None, memo
 
 
 def _maybe_node_for_sum_type(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({}),
     supported_origin=frozenset({})
 ) -> Optional[schema.nodes.SchemaNode]:
@@ -161,18 +170,27 @@ def _maybe_node_for_sum_type(
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
         variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
         for variant in typ:
-            node = decide_node_type(variant.__variant_meta__.constructor, overrides)
+            node, memo = decide_node_type(
+                variant.__variant_meta__.constructor,
+                overrides,
+                memo
+            )
             variant_nodes.append((variant, node))
         sum_node = schema.nodes.SchemaNode(
-            schema.types.Sum(typ=typ, variant_nodes=variant_nodes)
+            schema.types.Sum(
+                typ=typ,
+                variant_nodes=variant_nodes,
+                as_dict_key=overrides.get(flags.SUM_TYPE_DICT),
+            )
         )
-        return sum_node
-    return None
+        return sum_node, memo
+    return None, memo
 
 
 def _maybe_node_for_literal(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Literal,
@@ -181,7 +199,7 @@ def _maybe_node_for_literal(
     _supported_literal_types=frozenset({
         bool, int, str, bytes, NoneType,
     })
-) -> Optional[schema.nodes.SchemaNode]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ Handles cases where typ is a Literal, according to the allowed
     types: https://mypy.readthedocs.io/en/latest/literal_types.html
     """
@@ -192,13 +210,15 @@ def _maybe_node_for_literal(
         for x in inner:
             if type(x) not in _supported_literal_types:
                 raise TypeError(f'Literals cannot be defined with values of type {type(x)}')
-        return schema.nodes.SchemaNode(schema.types.Literal(frozenset(inner)))
-    return None
+        rv = schema.nodes.SchemaNode(schema.types.Literal(frozenset(inner)))
+        return rv, memo
+    return None, memo
 
 
 def _maybe_node_for_list(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({
         collections.abc.Sequence,
         pyt.PVector,
@@ -210,7 +230,7 @@ def _maybe_node_for_list(
         list,
         pyt.PVector,
     })
-) -> Optional[col.SequenceSchema]:
+) -> Tuple[Optional[col.SequenceSchema], MemoType]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         try:
@@ -225,13 +245,15 @@ def _maybe_node_for_list(
             seq_type = schema.nodes.PVectorSchema
         else:
             seq_type = col.SequenceSchema
-        return seq_type(decide_node_type(inner, overrides))
-    return None
+        node, memo = decide_node_type(inner, overrides, memo)
+        return seq_type(node), memo
+    return None, memo
 
 
 def _maybe_node_for_set(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({
         set,
         frozenset,
@@ -257,26 +279,29 @@ def _maybe_node_for_set(
             # Python 3.6 will have empty inner type,
             # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
-        return schema.nodes.SetSchema(
-            decide_node_type(inner, overrides),
+        node, memo = decide_node_type(inner, overrides, memo)
+        rv = schema.nodes.SetSchema(
+            node,
             frozen=(
                 typ is frozenset or
                 origin in (frozenset, FrozenSet)
             )
         )
-    return None
+        return rv, memo
+    return None, memo
 
 
 def _maybe_node_for_tuple(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({
         tuple,
     }),
     supported_origin=frozenset({
         tuple, Tuple,
     })
-) -> Optional[col.TupleSchema]:
+) -> Tuple[Optional[col.TupleSchema], MemoType]:
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         inner_types = inner_type_boundaries(typ)
         if Ellipsis in inner_types:
@@ -290,16 +315,17 @@ def _maybe_node_for_tuple(
             )
         node = col.TupleSchema()
         # Add tuple elements to the tuple node definition
-        inner_nodes = (decide_node_type(t, overrides) for t in inner_types)
-        for n in inner_nodes:
+        for t in inner_types:
+            n, memo = decide_node_type(t, overrides, memo)
             node.add(n)
-        return node
-    return None
+        return node, memo
+    return None, memo
 
 
 def _maybe_node_for_dict(
     typ: Type[iface.IType],
     overrides: OverridesT,
+    memo: MemoType,
     supported_type=frozenset({
         collections.abc.Mapping,
         pyt.PMap,
@@ -311,7 +337,7 @@ def _maybe_node_for_dict(
         Mapping,  # py3.6
         pyt.PMap,
     })
-) -> Optional[schema.nodes.SchemaNode]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
@@ -323,14 +349,15 @@ def _maybe_node_for_dict(
             map_type = schema.nodes.PMapSchema
         else:
             map_type = schema.nodes.DictSchema
-        return map_type()
-    return None
+        return map_type(), memo
+    return None, memo
 
 
 def _maybe_node_for_user_type(
     typ: Type[iface.IType],
-    overrides: OverridesT
-) -> Optional[schema.nodes.SchemaNode]:
+    overrides: OverridesT,
+    memo: MemoType,
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
@@ -369,28 +396,32 @@ def _maybe_node_for_user_type(
         else:
             serialized_field_name = field_name
 
-        node_type = decide_node_type(field_type, overrides)
-        if node_type is None:
+        node, memo = decide_node_type(field_type, overrides, memo)
+        if node is None:
             raise TypeError(
                 f'Cannot recognise type "{field_type}" of the field '
                 f'"{typ.__name__}.{field_name}" (from {typ.__module__})'
             )
-        node_type.name = serialized_field_name
-        type_schema.add(node_type)
-    return type_schema
+        # clonning because we mutate it next, and the node
+        # might be already from the cache
+        node = clone_schema_node(node)
+        node.name = serialized_field_name
+        type_schema.add(node)
+    return type_schema, memo
 
 
 def _maybe_node_for_overridden(
     typ: Type[Any],
-    overrides: OverridesT
-):
+    overrides: OverridesT,
+    memo: MemoType,
+) -> Tuple[Any, MemoType]:
     if typ in overrides:
         override: schema.TypeExtension = overrides[typ]
-        return override.schema
-    return None
+        return override.schema, memo
+    return None, memo
 
 
-PARSING_ORDER = [_maybe_node_for_overridden
+PARSING_ORDER = [ _maybe_node_for_overridden
                 , _maybe_node_for_none
                 , _maybe_node_for_primitive
                 , _maybe_node_for_type_var
@@ -405,13 +436,17 @@ PARSING_ORDER = [_maybe_node_for_overridden
                 # at this point it could be a user-defined type,
                 # so the parser may do another recursive iteration
                 # through the same plan
-                , _maybe_node_for_user_type]
+                , _maybe_node_for_user_type ]
+
+
+CompoundSchema = Union[schema.nodes.SchemaNode, col.TupleSchema, col.SequenceSchema]
 
 
 def decide_node_type(
     typ: Type[iface.IType],
-    overrides: OverridesT
-) -> Union[schema.nodes.SchemaNode, col.TupleSchema, col.SequenceSchema]:
+    overrides: OverridesT,
+    memo: MemoType
+) -> Tuple[CompoundSchema, MemoType]:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
@@ -424,53 +459,13 @@ def decide_node_type(
     # I'm not adding ^ to the function signature, because mypy
     # is unable to narrow down `typ` to NamedTuple
     # at line _node_for_type(typ)
-    for step in PARSING_ORDER:
-        node = step(typ, overrides)
+    if typ in memo:
+        return memo[typ], memo
+    for attempt_find in PARSING_ORDER:
+        node, memo = attempt_find(typ, overrides, memo)
         if node:
-            return node
+            memo = memo.set(typ, node)
+            return node, memo
     raise TypeError(
         f'Unable to create a node for "{typ}".'
     )
-
-
-TypeTools = Tuple[ Callable[[Dict[str, Any]], T]
-                 , Callable[[T], Union[List, Dict]] ]
-
-
-class _TypeConstructor:
-    def __init__(self, overrides: Union[Dict, OverridesT] = NO_OVERRIDES):
-        self.overrides = pmap(overrides)
-
-    def __call__(self,
-        typ: Type[T],
-        overrides: OverridesT = NO_OVERRIDES
-    ) -> TypeTools:
-        """ Generate a constructor and a serializer for the given type
-
-        :param overrides: a mapping of type_field => serialized_field_name.
-        """
-        try:
-            schema_node = decide_node_type(typ, overrides)
-        except TypeError as e:
-            raise TypeError(
-                f'Cannot create a type constructor for {typ}: {e}'
-            )
-        return (
-            partial(errors_aware_constructor, schema_node.deserialize),
-            partial(errors_aware_constructor, schema_node.serialize)
-        )
-
-    def __and__(self, override: OverrideT) -> '_TypeConstructor':
-        if isinstance(override, flags._Flag):
-            overrides = self.overrides.set(override, True)
-        elif isinstance(override, schema.meta.TypeExtension):
-            overrides = self.overrides.set(override.typ, override)
-        else:
-            overrides = self.overrides.update(override)
-        return self.__class__(overrides=overrides)
-
-    def __xor__(self, typ: Type[T]) -> TypeTools:
-        return self.__call__(typ, self.overrides)
-
-
-type_constructor = _TypeConstructor()

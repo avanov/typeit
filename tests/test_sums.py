@@ -2,6 +2,7 @@ from typing import Dict
 
 import pytest
 import pickle
+import typeit
 from typeit.sums import SumType
 
 
@@ -125,3 +126,26 @@ def test_generic_either():
 
     assert x.errmsg == 'Error'
     assert y.payload == {'success': True}
+
+
+def test_sums_as_dict():
+    class X(SumType):
+        class VariantA:
+            a: int
+            b: bool
+
+        class VariantB:
+            a: int
+            b: bool
+
+    mk_x, serialize_x = (
+            typeit.type_constructor & typeit.flags.SUM_TYPE_DICT << '_type' ^ X
+    )
+
+    data = {
+        '_type': 'varianta',
+        'a': 1,
+        'b': True,
+    }
+    x = mk_x(data)
+    assert serialize_x(x) == data

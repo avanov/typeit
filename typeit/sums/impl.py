@@ -66,6 +66,13 @@ class SumTypeMetaclass(type):
                 raise TypeError(f'Variant {variant_name} is already defined for {class_name}')
 
             # data constructor
+            if is_user_defined_base:
+                base = bases[0]
+                base_variant = getattr(base, variant_name)
+                variant_tag = base_variant.__variant_meta__.value
+            else:
+                variant_tag = getattr(data_constructor, '__tag__', variant_name.lower())
+
             data_constructor_hints = get_type_hints(data_constructor)
             if data_constructor_hints:
                 data_constructor = NamedTuple(variant_name, data_constructor_hints.items())
@@ -74,7 +81,6 @@ class SumTypeMetaclass(type):
                 if data_constructor is object:
                     data_constructor = NamedTuple(variant_name, ())
 
-            value = variant_name.lower()
             # necessary for ``type(SumType.X) is SumType``
             variant = object.__new__(user_defined_sum_class)
             variant.__init__(
@@ -82,13 +88,13 @@ class SumTypeMetaclass(type):
                     variant_of=user_defined_sum_class,
                     variant_name=variant_name,
                     constructor=data_constructor,
-                    value=value,
+                    value=variant_tag,
                 )
             )
 
             setattr(user_defined_sum_class, variant_name, variant)
             variants[variant_name] = variant
-            variant_values[value] = variant_name
+            variant_values[variant_tag] = variant_name
 
         if is_user_defined_base:
             verify_consistency(bases[0].__sum_meta__.variants, variants)

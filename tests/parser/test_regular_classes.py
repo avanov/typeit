@@ -1,12 +1,11 @@
 from money.money import Money
 
-from typeit import parser as p
-from typeit import flags
+import typeit
 
 
 def test_regular_classes():
 
-    mk_x, serialize_x = p.type_constructor & flags.NON_STRICT_PRIMITIVES ^ Money
+    mk_x, serialize_x = typeit.type_constructor & typeit.flags.NON_STRICT_PRIMITIVES ^ Money
 
     serialized = {
         'amount': '10',
