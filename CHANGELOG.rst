@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+0.15.0
+==============
+
+* SumType from/to mapping #43
+* Support explicit tags for SumType Variants #32
+
+
 0.14.1
 ==============
 
