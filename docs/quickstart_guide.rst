@@ -379,5 +379,5 @@ Here's an example how this flag changes the behaviour of the parser:
 Extensions
 ----------
 
-See _Cookbook.
+See a cookbook for :ref:`Cookbook`.
 
