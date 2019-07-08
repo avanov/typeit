@@ -2,13 +2,17 @@
 CHANGELOG
 =========
 
+0.16.0
+==============
+
+* Combinator for flags and extensions #45
+
 0.15.0
 ==============
 
 * SumType from/to mapping #43
 * Support explicit tags for SumType Variants #32
 * Parser memoization #38
-
 
 0.14.1
 ==============
