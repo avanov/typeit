@@ -10,7 +10,7 @@ class TypeExtension(NamedTuple):
     def __and__(self, other) -> Combinator:
         return Combinator() & self & other
 
-    def __lshift__(self, other) -> 'TypeExtension':
+    def __add__(self, other) -> 'TypeExtension':
         self.schema.add(nodes.SchemaNode(other))
         return self
 

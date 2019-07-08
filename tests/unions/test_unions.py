@@ -90,7 +90,7 @@ def test_test_union_primitive_and_compound_types():
         x: Union[str, Dict[str, Any]]
 
     mk_x, serialize_x = type_constructor(X)
-    mk_x_nonstrict, serialize_x_nonstrict = type_constructor(X, overrides={flags.NON_STRICT_PRIMITIVES: 1})
+    mk_x_nonstrict, serialize_x_nonstrict = type_constructor & flags.NON_STRICT_PRIMITIVES ^ X
 
     data = {'x': {'key': 'value'}}
     x = mk_x(data)
