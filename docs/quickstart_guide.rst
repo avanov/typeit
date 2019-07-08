@@ -345,7 +345,7 @@ override it with the following syntax:
 .. code-block:: python
 
     # Use "_type" as the key by which SumType's tag can be found in the mapping
-    mk_sum, serialize_sum = type_constructor & SUM_TYPE_DICT << '_type' ^ int
+    mk_sum, serialize_sum = type_constructor & SUM_TYPE_DICT('_type') ^ int
 
 
 Here's an example how this flag changes the behaviour of the parser:
@@ -361,7 +361,7 @@ Here's an example how this flag changes the behaviour of the parser:
     ...
     >>> _, serialize_std_payment = typeit.type_constructor ^ Payment
     >>> _, serialize_dict_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT ^ Payment
-    >>> _, serialize_dict_v2_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT << '$type' ^ Payment
+    >>> _, serialize_dict_v2_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT('$type') ^ Payment
     >>>
     >>> payment = Payment.Card(number='1111 1111 1111 1111', amount='10')
     >>>
