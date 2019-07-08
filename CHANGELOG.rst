@@ -2,10 +2,11 @@
 CHANGELOG
 =========
 
-0.16.0
-==============
+0.16.0 - 0.17.0
+===============
 
 * Combinator for flags and extensions #45
+* Change interface for Flags and Extensions
 
 0.15.0
 ==============
