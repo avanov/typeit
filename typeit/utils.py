@@ -23,9 +23,12 @@ def is_named_tuple(typ: Type[Any]) -> bool:
 def clone_schema_node(node):
     """ Clonning the node and reassigning the same children,
     because clonning is recursive, but we are only interested
-    in new version of the outermost schema node, the children nodes
+    in a new version of the outermost schema node, the children nodes
     should be shared to avoid unnecessary duplicates.
     """
     new_node = node.clone()
-    new_node.children = node.children
+    # a list comprehension to place the same nodes into
+    # a new wrapping list object, so that extending
+    # the cloned node with new children doesn't affect the original node
+    new_node.children = [x for x in node.children]
     return new_node
