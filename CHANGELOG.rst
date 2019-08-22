@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.18.0
+===============
+
+* SumType variants are attribute-strict #48
+
 0.16.0 - 0.17.0
 ===============
 
