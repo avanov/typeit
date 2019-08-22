@@ -175,6 +175,7 @@ def _maybe_node_for_sum_type(
                 overrides,
                 memo
             )
+            node.typ.unknown = 'raise'
             variant_nodes.append((variant, node))
         sum_node = schema.nodes.SchemaNode(
             schema.types.Sum(

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, NamedTuple
 
 import pytest
 import pickle
@@ -149,3 +149,25 @@ def test_sums_as_dict():
     }
     x = mk_x(data)
     assert serialize_x(x) == data
+
+
+def test_sumtype_attr_strictness():
+    class Versioning(SumType):
+        class V1:
+            a: int
+
+        class V2:
+            a: int
+            b: int
+
+    class X(NamedTuple):
+        payload: Versioning
+
+    mk_x, serialize_x = (
+            typeit.type_constructor & typeit.flags.SUM_TYPE_DICT('_version_') ^ X
+    )
+
+    with pytest.raises(typeit.Error):
+        x = mk_x({'payload': {'_version_': 'v1', 'a': 1, 'b': 1}})
+
+    x = mk_x({'payload': {'_version_': 'v2', 'a': 1, 'b': 1}})
