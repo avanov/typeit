@@ -2,6 +2,11 @@
 CHANGELOG
 =========
 
+0.19.0
+===============
+
+* Generalized attribute name normalization
+
 0.18.0
 ===============
 
