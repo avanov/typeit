@@ -1,8 +1,10 @@
 import re
 import keyword
+import string
 from typing import Any, Type
 
 NORMALIZATION_PREFIX = 'overridden__'
+SUPPORTED_CHARS = string.ascii_letters + string.digits
 
 
 def normalize_name(name: str,
@@ -10,7 +12,13 @@ def normalize_name(name: str,
     """ Some field name patterns are not allowed in NamedTuples
     https://docs.python.org/3.7/library/collections.html#collections.namedtuple
     """
-    being_normalized = name.replace('-', '_').strip('_')
+    being_normalized = name
+    if not being_normalized.isidentifier():
+        being_normalized = ''.join([
+            c if c in SUPPORTED_CHARS else '_' for c in being_normalized
+        ])
+    being_normalized = being_normalized.strip('_')
+
     if keyword.iskeyword(being_normalized) or pattern.match(being_normalized):
         return f'{NORMALIZATION_PREFIX}{being_normalized}'
     return being_normalized
