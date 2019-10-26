@@ -12,6 +12,7 @@ install:
 python:
   - "3.6"
   - "3.7"
+  - "3.8"
 
 # --source specifies what packages to cover, you probably want to use that option
 script:
