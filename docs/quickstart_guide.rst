@@ -177,10 +177,10 @@ Supported types
 * ``typing.Tuple``
 * ``typing.Dict``
 * ``typing.Mapping``
+* ``typing.Literal`` (``typing_extensions.Literal`` on Python prior 3.8)
 * ``typeit.sums.SumType``
 * ``enum.Enum`` derivatives
 * ``pathlib.Path`` derivatives
-* ``typing_extensions.Literal``
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
 * Regular classes with annotated ``__init__`` methods (`dataclasses.dataclass` are supported as a consequence of this).

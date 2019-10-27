@@ -1,7 +1,7 @@
 import collections
 from typing import Mapping, Any, Union, Optional, Sequence
 from typing import NamedTuple
-from typing_extensions import Literal
+from typeit.compat import Literal
 
 import pytest
 from typeit import type_constructor, Error
