@@ -31,6 +31,28 @@ Typeit
     $ echo '{"first-name": "Hello", "initial": null, "last_name": "World"}' | typeit gen
 
 
+The snipped above produces output similar to this:
+
+.. code-block:: python
+
+    from typing import Any, NamedTuple, Optional, Sequence
+    from typeit import type_constructor
+
+
+    class Main(NamedTuple):
+        first_name: str
+        initial: Optional[Any]
+        last_name: str
+
+
+    overrides = {
+        Main.first_name: 'first-name',
+    }
+
+
+    mk_main, serialize_main = type_constructor & overrides ^ Main
+
+
 Documentation
 -------------
 
