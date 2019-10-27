@@ -5,7 +5,6 @@ from typing import (
 )
 
 from pyrsistent.typing import PMap
-from typing_extensions import Literal
 import collections
 
 import colander as col
@@ -13,6 +12,7 @@ import typing_inspect as insp
 from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
 
+from .compat import Literal
 from .definitions import OverridesT
 from .utils import is_named_tuple, clone_schema_node
 from . import compat

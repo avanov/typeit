@@ -107,8 +107,8 @@ and ``DockerConfig.version`` is restricted to ``"2.0"`` and ``"2.1"`` only (and 
 
     # Source code of ./__init__.py
 
-    # from typing import Literal  # on python 3.8+
-    from typing_extensions import Literal
+    from typing import Literal
+    # from typing_extensions import Literal  # on python < 3.8
 
     class DockerConfig(NamedTuple):
         version: Literal['2.0', '2.1']
@@ -204,8 +204,8 @@ Here's what we get as the final solution for our task:
     # Source code of ./docker_config.py
 
     from typing import NamedTuple, Sequence
-    # from typing import Literal  # on python 3.8+
-    from typing_extensions import Literal
+    from typing import Literal
+    # from typing_extensions import Literal  # on python < 3.8
 
     import typeit
 
