@@ -19,8 +19,6 @@
     :alt: Latest PyPI Release
 
 
-**Development status: Beta**
-
 Typeit
 ------
 
@@ -36,7 +34,7 @@ The snipped above produces output similar to this:
 .. code-block:: python
 
     from typing import Any, NamedTuple, Optional, Sequence
-    from typeit import type_constructor
+    from typeit import TypeConstructor
 
 
     class Main(NamedTuple):
@@ -50,7 +48,7 @@ The snipped above produces output similar to this:
     }
 
 
-    mk_main, serialize_main = type_constructor & overrides ^ Main
+    mk_main, serialize_main = TypeConstructor & overrides ^ Main
 
 
 Documentation

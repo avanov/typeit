@@ -5,7 +5,7 @@ import typeit
 
 def test_regular_classes():
 
-    mk_x, serialize_x = typeit.type_constructor & typeit.flags.NON_STRICT_PRIMITIVES ^ Money
+    mk_x, serialize_x = typeit.TypeConstructor & typeit.flags.NonStrictPrimitives ^ Money
 
     serialized = {
         'amount': '10',

@@ -8,11 +8,6 @@ Type it!
 
 **typeit** brings typed data into your Python 3.6+ projects.
 
-.. CAUTION::
-
-    The project is in a beta development status, and a few public
-    APIs may change in a backward-incompatible manner.
-
 
 Quickstart Guide
 ================

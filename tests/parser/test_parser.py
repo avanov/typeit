@@ -14,7 +14,7 @@ def test_type_with_unclarified_list():
         x: Sequence
         y: List
 
-    mk_main, serialize_main = typeit.type_constructor ^ X
+    mk_main, serialize_main = typeit.TypeConstructor ^ X
     x = mk_main({'x': [], 'y': []})
     x = mk_main({'x': [1], 'y': ['1']})
     assert x.x[0] == int(x.y[0])
@@ -29,8 +29,8 @@ def test_primitives_strictness():
         c: float
         d: bool
 
-    mk_x, serialize_x = typeit.type_constructor ^ X
-    mk_x_nonstrict, serialize_x_nonstrict = typeit.type_constructor & flags.NON_STRICT_PRIMITIVES ^ X
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+    mk_x_nonstrict, serialize_x_nonstrict = typeit.TypeConstructor & flags.NonStrictPrimitives ^ X
 
     data = {
         'a': '1',
@@ -70,7 +70,7 @@ def test_serialize_list():
     class X(NamedTuple):
         x: Union[None, Sequence[str]]
 
-    mk_x, serialize_x = typeit.type_constructor ^ X
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
     data = {
         'x': ['str'],
     }
@@ -91,7 +91,7 @@ def test_serialize_union_lists():
     class X(NamedTuple):
         x: Union[Sequence[str], Sequence[float], Sequence[int]]
 
-    mk_x, serialize_x = typeit.type_constructor ^ X
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
     data = {
         'x': [1],
     }
@@ -105,7 +105,7 @@ def test_type_with_sequence():
         y: Sequence[Any]
         z: Sequence[str]
 
-    mk_main, serializer = typeit.type_constructor(X)
+    mk_main, serializer = typeit.TypeConstructor(X)
 
     x = mk_main({'x': 1, 'y': [], 'z': ['Hello']})
     assert x.y == []
@@ -122,7 +122,7 @@ def test_type_with_tuple_primitives():
         b: Tuple            # the following are equivalent
         c: tuple
 
-    mk_x, serializer = typeit.type_constructor(X)
+    mk_x, serializer = typeit.TypeConstructor(X)
 
     x = mk_x({
         'a': ['value', 5],
@@ -166,7 +166,7 @@ def test_type_with_complex_tuples():
         a: Tuple[Tuple[Dict, Y], int]
         b: Optional[Any]
 
-    mk_x, serializer = typeit.type_constructor(X)
+    mk_x, serializer = typeit.TypeConstructor(X)
 
     x = mk_x({
         'a': [
@@ -193,7 +193,7 @@ def test_unsupported_variable_length_tuples():
         a: Tuple[int, ...]
 
     with pytest.raises(TypeError):
-        mk_x, serialize_x = typeit.type_constructor(X)
+        mk_x, serialize_x = typeit.TypeConstructor(X)
 
 
 def test_enum_like_types():
@@ -204,7 +204,7 @@ def test_enum_like_types():
     class X(NamedTuple):
         e: Enums
 
-    mk_x, serialize_x = typeit.type_constructor(X)
+    mk_x, serialize_x = typeit.TypeConstructor(X)
 
     data = {'e': 'a'}
     x = mk_x(data)
@@ -231,7 +231,7 @@ def test_sum_types_as_union():
     class X(NamedTuple):
         x: MyEither
 
-    mk_x, serialize_x = typeit.type_constructor ^ X
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
     x_data = {
         'x': ('left', {'err': 'Error'})
     }
@@ -293,7 +293,7 @@ def test_enum_unions_serialization():
         val: Union[E0, E1]
 
 
-    __, serializer = typeit.type_constructor(MyType)
+    __, serializer = typeit.TypeConstructor(MyType)
 
     assert serializer(MyType(val=E1.Z)) == {'val': 'z'}
 
@@ -307,7 +307,7 @@ def test_type_with_empty_enum_variant():
         x: int
         y: Types
 
-    mk_x, serializer = typeit.type_constructor(X)
+    mk_x, serializer = typeit.TypeConstructor(X)
 
     for variant in Types:
         x = mk_x({'x': 1, 'y': variant.value})
@@ -328,7 +328,7 @@ def test_type_with_set():
         g: Set[Any]
         h: Set[int]
 
-    mk_x, serializer = typeit.type_constructor(X)
+    mk_x, serializer = typeit.TypeConstructor(X)
 
     x = mk_x({
         'a': [],
@@ -355,7 +355,7 @@ def test_parse_sequence():
     XS = Sequence[X]
 
     data = [{'x': 1, 'y': {}}]
-    mk_xs, serialize_xs = typeit.type_constructor(XS)
+    mk_xs, serialize_xs = typeit.TypeConstructor(XS)
     z = mk_xs(data)
     assert z[0].x == 1
     assert serialize_xs(z) == data
@@ -364,7 +364,7 @@ def test_parse_sequence():
     XS = Sequence[int]
 
     data = [1, 2, 3]
-    mk_xs, serialize_xs = typeit.type_constructor(XS)
+    mk_xs, serialize_xs = typeit.TypeConstructor(XS)
 
     z = mk_xs(data)
     assert z[0] == 1
@@ -378,7 +378,7 @@ def test_parse_sequence():
     (Dict[str, Any], {'x': 1, 'y': True, 'z': '1'})
 ))
 def test_parse_builtins(typ, data):
-    mk_x, serialize_x = typeit.type_constructor(typ)
+    mk_x, serialize_x = typeit.TypeConstructor(typ)
 
     z = mk_x(data)
     assert z == data
@@ -398,7 +398,7 @@ def test_type_with_dict():
         x: int
         y: Dict[str, Any]
 
-    mk_x, serializer = typeit.type_constructor(X)
+    mk_x, serializer = typeit.TypeConstructor(X)
 
     with pytest.raises(typeit.Error):
         mk_x({})
@@ -417,10 +417,10 @@ def test_name_overrides():
     data = {'my-x': 1}
 
     with pytest.raises(typeit.Error):
-        mk_x, serialize_x = typeit.type_constructor ^ X
+        mk_x, serialize_x = typeit.TypeConstructor ^ X
         mk_x(data)
 
-    mk_x, serialize_x = typeit.type_constructor & {X.x: 'my-x'} ^ X
+    mk_x, serialize_x = typeit.TypeConstructor & {X.x: 'my-x'} ^ X
     x = mk_x(data)
     assert serialize_x(x) == data
 
@@ -434,4 +434,4 @@ def test_name_overrides():
     Sequence,
 ])
 def test_parse_builtins_and_sequences(typ):
-    mk_x, serialize_x = typeit.type_constructor ^ typ
+    mk_x, serialize_x = typeit.TypeConstructor ^ typ

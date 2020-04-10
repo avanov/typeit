@@ -139,7 +139,7 @@ def test_sums_as_dict():
             b: bool
 
     mk_x, serialize_x = (
-            typeit.type_constructor & typeit.flags.SUM_TYPE_DICT('_type') ^ X
+            typeit.TypeConstructor & typeit.flags.SumTypeDict('_type') ^ X
     )
 
     data = {
@@ -164,7 +164,7 @@ def test_sumtype_attr_strictness():
         payload: Versioning
 
     mk_x, serialize_x = (
-            typeit.type_constructor & typeit.flags.SUM_TYPE_DICT('_version_') ^ X
+            typeit.TypeConstructor & typeit.flags.SumTypeDict('_version_') ^ X
     )
 
     with pytest.raises(typeit.Error):

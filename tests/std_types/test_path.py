@@ -1,7 +1,7 @@
 import pathlib as p
 from typing import NamedTuple, Union, Dict
 
-from typeit import type_constructor
+from typeit import TypeConstructor
 
 
 def test_path():
@@ -14,7 +14,7 @@ def test_path():
         # we are omitting a test here
         posix_path: p.PosixPath
 
-    mk_x, serialize_x = type_constructor(X)
+    mk_x, serialize_x = TypeConstructor(X)
 
     data = {
         'pure': '/',
@@ -31,7 +31,7 @@ def test_path_union():
     class X(NamedTuple):
         x: Union[p.Path, Dict]
 
-    mk_x, serialize_x = type_constructor(X)
+    mk_x, serialize_x = TypeConstructor(X)
     data = {
         'x': '/'
     }

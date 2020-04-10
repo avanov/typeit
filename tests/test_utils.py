@@ -27,7 +27,7 @@ def test_iter_invalid_data():
         items: Sequence[Item]
         item: Item
 
-    mk_x, serialize_x = typeit.type_constructor(X)
+    mk_x, serialize_x = typeit.TypeConstructor(X)
 
     data = {
         'items': [
@@ -46,7 +46,7 @@ def test_iter_invalid_data():
 
 
 def test_invalid_root_data():
-    mk_int, serialize_int = typeit.type_constructor ^ int
+    mk_int, serialize_int = typeit.TypeConstructor ^ int
     try:
         mk_int('1')
     except typeit.Error as e:
@@ -54,7 +54,7 @@ def test_invalid_root_data():
 
 
 def test_iter_invalid_serialize():
-    mk_int, serialize_int = typeit.type_constructor ^ int
+    mk_int, serialize_int = typeit.TypeConstructor ^ int
     try:
         serialize_int('1')
     except typeit.Error as e:
@@ -64,7 +64,7 @@ def test_iter_invalid_serialize():
         a: int
         b: bool
 
-    mk_x, serialize_x = typeit.type_constructor ^ X
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
 
     data = {
         'a': 1,

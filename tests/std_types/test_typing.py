@@ -4,7 +4,7 @@ from typing import NamedTuple
 from typeit.compat import Literal
 
 import pytest
-from typeit import type_constructor, Error
+from typeit import TypeConstructor, Error
 
 
 def test_mapping():
@@ -13,14 +13,14 @@ def test_mapping():
         y: Mapping[str, Any]
         z: collections.abc.Mapping
 
-    mk_x, serialize_x = type_constructor ^ X
+    mk_x, serialize_x = TypeConstructor ^ X
 
 
 def test_sequence():
     class X(NamedTuple):
         xs: collections.abc.Sequence
 
-    mk_x, serialize_x = type_constructor ^ X
+    mk_x, serialize_x = TypeConstructor ^ X
 
 
 def test_sets():
@@ -28,7 +28,7 @@ def test_sets():
         xs: collections.abc.Set
         ys: collections.abc.MutableSet
 
-    mk_x, serialize_x = type_constructor ^ X
+    mk_x, serialize_x = TypeConstructor ^ X
 
 
 def test_literals():
@@ -37,7 +37,7 @@ def test_literals():
         y: Literal[1, 'a']
         z: Literal[None, 1]
 
-    mk_x, serialize_x = type_constructor ^ X
+    mk_x, serialize_x = TypeConstructor ^ X
 
     data = {
         'x': 1,
@@ -83,7 +83,7 @@ def test_literals_included():
         y: Optional[Literal[1]]
         z: Sequence[Literal[1]]
 
-    mk_x, serialize_x = type_constructor ^ X
+    mk_x, serialize_x = TypeConstructor ^ X
 
     data = {
         'x': None,

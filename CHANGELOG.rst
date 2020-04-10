@@ -2,6 +2,16 @@
 CHANGELOG
 =========
 
+0.21.0
+===============
+
+* Support for global attribute name overrides with ``typeit.flags.GlobalNameOverride``
+* ``typeit.TypeConstructor`` is now recommended over ``typeit.type_constructor``.
+   The latter is left for backward compatibility.
+* ``NonStrictPrimitives`` and ``SumTypeDict`` are now recommended over corresponding
+  ``NON_STRICT_PRIMITIVES`` ``SUM_TYPE_DICT``. The latter are left for backward compatibility.
+
+
 0.20.0
 ===============
 
@@ -75,7 +85,7 @@ CHANGELOG
 
 * Fix bug in parsing union types with sequence variants.
 * Primitive types switched to strict matching.
-* Non-strict primitives flag `NON_STRICT_PRIMITIVES` is available for overrides.
+* Non-strict primitives flag `NonStrictPrimitives` is available for overrides.
 * Added support for `typing.Mapping`
 * Added support for `pathlib.Path`
 
