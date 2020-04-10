@@ -68,6 +68,10 @@ class _TypeConstructor:
     def __xor__(self, typ: Type[T]) -> TypeTools:
         return self.__call__(typ, self.overrides)
 
+    # helper aliases for those who doesn't like combinators' syntax
+    override = __and__
+    apply_on = __xor__
+
 
 type_constructor = _TypeConstructor()
 TypeConstructor = type_constructor

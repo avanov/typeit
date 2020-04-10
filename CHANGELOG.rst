@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.21.0
+===============
+
+* Support for global attribute name overrides with ``typeit.flags.GLOBAL_NAME_OVERRIDE``
+
+
 0.20.0
 ===============
 

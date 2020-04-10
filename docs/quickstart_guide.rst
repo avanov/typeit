@@ -67,7 +67,7 @@ and rename the whole structure to better indicate the nature of the data:
 ``serialize_person :: Person -> Dict`` for you.
 
 ``type_constructor & overrides`` produces a new type constructor that takes overrides into consideration,
-and ``type_constructor ^ Person`` reads as "type constructor applied to the Person structure" and essentially
+and ``type_constructor ^ Person`` reads as "type constructor applied on the Person structure" and essentially
 is the same as ``type_constructor(Person)``, but doesn't require parentheses around overrides (and extensions):
 
 .. code-block:: python
@@ -106,7 +106,9 @@ Instead of relying on automatic dasherizing of this attribute (for instance, wit
 `inflection <https://inflection.readthedocs.io/en/latest/>`_ package), which rarely works
 consistently across all possible corner cases, ``typeit`` explicitly
 provides you with a reference point in the code, that you can track and refactor with
-Intelligent Code Completion tools, should that necessity arise.
+Intelligent Code Completion tools, should that necessity arise (but this doesn't meant that
+you cannot apply a global rule to override all attribute names,
+please refer to the :ref:`Constructor Flags` section of this manual for more details).
 
 You can use the same ``overrides`` object to specify rules for attributes of
 any nested types, for instance:
@@ -305,8 +307,47 @@ And, of course, you can use Sum Types in signatures of your serializable data:
     payments = mk_payments(json_ready)
 
 
+.. _Constructor Flags:
+
 Constructor Flags
 -----------------
+
+Constructor flags allow you to define global overrides that affect all structures (toplevel and nested) in a uniform fashion.
+
+``typeit.flags.GLOBAL_NAME_OVERRIDE`` -
+useful when you want to globally modify output field names from pythonic `snake_style` to another naming convention
+scheme (`camelCase`, `dasherized-names`, etc). Here's a few examples:
+
+.. code-block:: python
+
+    import inflection
+
+    class FoldedData(NamedTuple):
+        field_three: str
+
+    class Data(NamedTuple):
+        field_one: str
+        field_two: FoldedData
+
+    constructor, to_serializable = type_constructor & GLOBAL_NAME_OVERRIDE(inflection.camelize) ^ Data
+
+    data = Data(field_one='one',
+                field_two=FoldedData(field_three='three'))
+
+    serialized = to_serializable(data)
+
+
+the `serialized` dictionary will look like
+
+.. code-block:: python
+
+    {
+        'FieldOne': 'one',
+        'FieldTwo': {
+            'FieldThree': 'three'
+        }
+    }
+
 
 ``typeit.flags.NON_STRICT_PRIMITIVES`` -
 disables strict checking of primitive types. With this flag, a type constructor for a structure
