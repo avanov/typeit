@@ -24,6 +24,8 @@ Typeit
 
 `typeit` brings typed data into your project.
 
+Start using it by automatically generating types for your JSON payloads:
+
 .. code-block:: bash
 
     $ echo '{"first-name": "Hello", "initial": null, "last_name": "World"}' | typeit gen
@@ -49,6 +51,16 @@ The snipped above produces output similar to this:
 
 
     mk_main, serialize_main = TypeConstructor & overrides ^ Main
+
+Use these functions to construct and serialize your payloads:
+
+.. code-block:: python
+
+    payload = {"first-name": "Hello", "initial": None, "last_name": "World"}
+
+    data = mk_main(payload)
+    assert isinstance(data, Main)
+    assert serialize_main(data) == payload
 
 
 Documentation

@@ -33,7 +33,10 @@ OverrideT = Union[
     flags._Flag,
     # new type extension
     TypeExtension,
-    Mapping[property, str],
+    Union[
+        Mapping[property, str],         # overrides syntax for NamedTuples
+        Mapping[Tuple[Type, str], str]  # overrides syntax for dataclasses and init-based hints
+    ],
 ]
 
 
@@ -353,6 +356,12 @@ def _maybe_node_for_dict(
     return None, memo
 
 
+_type_hints_getter = lambda x: list(filter(
+    lambda x: x[1] is not NoneType,
+    get_type_hints(x).items()
+))
+
+
 def _maybe_node_for_user_type(
     typ: Type[iface.IType],
     overrides: OverridesT,
@@ -364,6 +373,10 @@ def _maybe_node_for_user_type(
     global_name_overrider: Callable[[str], str] = overrides.get(flags.GlobalNameOverride, flags.Identity)
 
     if is_named_tuple(typ):
+        hints_source = typ
+        attribute_hints = _type_hints_getter(hints_source)
+        get_override_identifier = lambda x: getattr(typ, x)
+
         deserialize_overrides = pmap({
             # try to get a specific override for a field, if it doesn't exist, use the global modifier
             overrides.get(
@@ -372,7 +385,6 @@ def _maybe_node_for_user_type(
             ): python_field_name
             for python_field_name in typ._fields
         })
-        hints_source = typ
 
         # apply a local optimisation that discards `deserialize_overrides`
         # if there is no difference with the original field_names;
@@ -380,15 +392,24 @@ def _maybe_node_for_user_type(
         if deserialize_overrides == pmap({x: x for x in typ._fields}):
             deserialize_overrides = pmap({})
     else:
-        # use init-based types;
-        # note that overrides are not going to work without named tuples
-        deserialize_overrides = pmap({})
+        # use init-based types
         hints_source = typ.__init__
+        attribute_hints = _type_hints_getter(hints_source)
+        get_override_identifier = lambda x: (typ, x)
 
-    attribute_hints = list(filter(
-        lambda x: x[1] is not NoneType,
-        get_type_hints(hints_source).items()
-    ))
+        deserialize_overrides = pmap({
+            # try to get a specific override for a field, if it doesn't exist, use the global modifier
+            overrides.get(
+                (typ, python_field_name),
+                global_name_overrider(python_field_name)
+            ): python_field_name
+            for python_field_name, _ in attribute_hints
+        })
+        # apply a local optimisation that discards `deserialize_overrides`
+        # if there is no difference with the original field_names;
+        # it is done to occupy less memory with unnecessary mappings
+        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}):
+            deserialize_overrides = pmap({})
 
     type_schema = schema.nodes.SchemaNode(
         schema.types.Structure(
@@ -402,7 +423,7 @@ def _maybe_node_for_user_type(
         globally_modified_field_name = global_name_overrider(field_name)
         # apply field override, if available
         if deserialize_overrides:
-            field = getattr(typ, field_name)
+            field = get_override_identifier(field_name)
             serialized_field_name = overrides.get(field, globally_modified_field_name)
         else:
             serialized_field_name = globally_modified_field_name

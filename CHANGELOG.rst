@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.22.0
+===============
+
+* Support for overrides of init-based types (and dataclasses).
+
+
 0.21.0
 ===============
 

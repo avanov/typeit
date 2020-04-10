@@ -13,12 +13,16 @@ if PY_VERSION >= (3, 7):
             unit_price: float
             quantity_on_hand: int = 0
 
-        mk_inv, serialize_inv = typeit.TypeConstructor(InventoryItem)
+        overrides = {
+            (InventoryItem, 'quantity_on_hand'): 'quantity'
+        }
+
+        mk_inv, serialize_inv = typeit.TypeConstructor.override(overrides).apply_on(InventoryItem)
 
         serialized = {
             'name': 'test',
             'unit_price': 1.0,
-            'quantity_on_hand': 5,
+            'quantity': 5,
         }
         x = mk_inv(serialized)
         assert isinstance(x, InventoryItem)
