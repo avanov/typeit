@@ -5,11 +5,19 @@ import pytest
 import typeit as tt
 import inflection
 
+
 def test_combinators():
-    flags = tt.flags.NON_STRICT_PRIMITIVES & tt.flags.NON_STRICT_PRIMITIVES()
-    flags = flags & tt.flags.SUM_TYPE_DICT('_type')
+    flags = tt.flags.NonStrictPrimitives & tt.flags.NonStrictPrimitives()
+    flags = flags & tt.flags.SumTypeDict('_type')
     flags = flags & 1
-    x = tt.type_constructor & flags
+    x = tt.TypeConstructor & flags
+
+    # test aliases
+    construct, to_serializable = tt.TypeConstructor\
+        .override(tt.flags.NonStrictPrimitives)\
+        .override(tt.flags.NonStrictPrimitives())\
+        .override(tt.flags.SumTypeDict('_type'))\
+        .apply_on(int)
 
 
 @pytest.mark.parametrize('modifier, expected_dict', [
@@ -43,7 +51,7 @@ def test_combinators():
     ),
 ])
 def test_global_names_override(modifier, expected_dict):
-    flags = tt.flags.GLOBAL_NAME_OVERRIDE(modifier)
+    flags = tt.flags.GlobalNameOverride(modifier)
     Constructor = tt.TypeConstructor & flags
 
     class FoldedData(NamedTuple):

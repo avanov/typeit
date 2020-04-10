@@ -3,7 +3,7 @@ from typing import NamedTuple, Union, Any, Dict
 import pytest
 
 import typeit
-from typeit import type_constructor, parser as p, flags
+from typeit import TypeConstructor, flags
 from typeit.compat import PY36
 
 
@@ -19,7 +19,7 @@ def test_type_with_unions():
         x: Union[None, VariantA, VariantB]
         y: Union[str, VariantA]
 
-    mk_x, serialize_x = typeit.type_constructor(X)
+    mk_x, serialize_x = typeit.TypeConstructor(X)
 
     x = mk_x({'x': {'variant_a': 1}, 'y': 'y'})
     assert isinstance(x.x, VariantA)
@@ -43,7 +43,7 @@ def test_type_with_primitive_union():
     class X(NamedTuple):
         x: Union[None, str]
 
-    mk_x, serialize_x = type_constructor(X)
+    mk_x, serialize_x = TypeConstructor(X)
 
     x = mk_x({'x': None})
     assert x.x is None
@@ -63,7 +63,7 @@ def test_union_primitive_match():
         # and float values instead of rounded int values.
         x: Union[str, int, float, bool]
 
-    mk_x, serializer = type_constructor(X)
+    mk_x, serializer = TypeConstructor(X)
 
     x = mk_x({'x': 1})
     assert isinstance(x.x, int)
@@ -89,8 +89,8 @@ def test_test_union_primitive_and_compound_types():
     class X(NamedTuple):
         x: Union[str, Dict[str, Any]]
 
-    mk_x, serialize_x = type_constructor(X)
-    mk_x_nonstrict, serialize_x_nonstrict = type_constructor & flags.NON_STRICT_PRIMITIVES ^ X
+    mk_x, serialize_x = TypeConstructor(X)
+    mk_x_nonstrict, serialize_x_nonstrict = TypeConstructor & flags.NonStrictPrimitives ^ X
 
     data = {'x': {'key': 'value'}}
     x = mk_x(data)

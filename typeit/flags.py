@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Optional, Union, NamedTuple
+from typing import Any, Optional, Union, NamedTuple
 from .combinator.combinator import Combinator
 
 
@@ -30,12 +30,20 @@ class _Flag:
     def __and__(self, other: Any) -> Combinator:
         return Combinator() & self & other
 
+
+Identity = lambda x: x
+
 # Disable strict matching of primitive types
 # (for instance, allow '1' to be passed to a `x: int` attribute etc)
-NON_STRICT_PRIMITIVES = _Flag('NON_STRICT_PRIMITIVES', True)
+NonStrictPrimitives = _Flag('NonStrictPrimitives', True)
 
 
-SUM_TYPE_DICT = _Flag('SUM_TYPE_DICT', 'type')
+SumTypeDict = _Flag('SumTypeDict', 'type')
 
 
-GLOBAL_NAME_OVERRIDE = _Flag('GLOBAL_NAME_OVERRIDE', lambda x: x)
+GlobalNameOverride = _Flag('GlobalNameOverride', Identity)
+
+
+# fo b/w compatibility
+NON_STRICT_PRIMITIVES = NonStrictPrimitives
+SUM_TYPE_DICT = SumTypeDict

@@ -49,14 +49,14 @@ def test_parser_github_pull_request_payload():
     python_source, __ = cg.codegen_py(TypeitSchema(typ, overrides))
     assert 'overrides' in python_source
     assert "PullRequest.links: '_links'," in python_source
-    assert 'mk_main, serialize_main = type_constructor & overrides ^ Main' in python_source
+    assert 'mk_main, serialize_main = TypeConstructor & overrides ^ Main' in python_source
 
     PullRequestType = get_type_hints(typ)['pull_request']
 
     assert PullRequestType.links in overrides
     assert overrides[PullRequestType.links] == '_links'
 
-    constructor, serializer = typeit.type_constructor(
+    constructor, serializer = typeit.TypeConstructor(
         typ,
         overrides=overrides
     )

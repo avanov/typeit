@@ -4,7 +4,6 @@ from typing import (
     MutableSet, TypeVar, FrozenSet, Mapping, Callable,
 )
 
-from pyrsistent.typing import PMap
 import collections
 
 import colander as col
@@ -61,7 +60,7 @@ def _maybe_node_for_primitive(
     built-in type converters (in terms of Python built-ins).
     """
     registry = schema.primitives.PRIMITIVES_REGISTRY[
-        flags.NON_STRICT_PRIMITIVES in overrides
+        flags.NonStrictPrimitives in overrides
     ]
 
     try:
@@ -145,7 +144,7 @@ def _maybe_node_for_union(
             variant_nodes.append((variant, node))
 
         primitive_types = schema.primitives.PRIMITIVES_REGISTRY[
-            flags.NON_STRICT_PRIMITIVES in overrides
+            flags.NonStrictPrimitives in overrides
         ]
 
         union_node = schema.nodes.SchemaNode(
@@ -181,7 +180,7 @@ def _maybe_node_for_sum_type(
             schema.types.Sum(
                 typ=typ,
                 variant_nodes=variant_nodes,
-                as_dict_key=overrides.get(flags.SUM_TYPE_DICT),
+                as_dict_key=overrides.get(flags.SumTypeDict),
             )
         )
         return sum_node, memo
@@ -362,7 +361,7 @@ def _maybe_node_for_user_type(
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
-    global_name_overrider: Callable[[str], str] = overrides.get(flags.GLOBAL_NAME_OVERRIDE, lambda x: x)
+    global_name_overrider: Callable[[str], str] = overrides.get(flags.GlobalNameOverride, flags.Identity)
 
     if is_named_tuple(typ):
         deserialize_overrides = pmap({

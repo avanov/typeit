@@ -12,7 +12,7 @@ def test_pyrsistent_types():
         b: ps.typing.PVector[ps.typing.PMap]
         c: Optional[ps.typing.PMap]
 
-    mk_x, serialize_x = ty.type_constructor ^ X
+    mk_x, serialize_x = ty.TypeConstructor ^ X
 
     data = {
         'a': {'x': 'x', 'y': 'y'},

@@ -24,7 +24,7 @@ You should see output similar to this:
 .. code-block:: python
 
     from typing import Any, NamedTuple, Optional, Sequence
-    from typeit import type_constructor
+    from typeit import TypeConstructor
 
 
     class Main(NamedTuple):
@@ -38,7 +38,7 @@ You should see output similar to this:
     }
 
 
-    mk_main, serialize_main = type_constructor & overrides ^ Main
+    mk_main, serialize_main = TypeConstructor & overrides ^ Main
 
 
 You can use this snippet as a starting point to improve further.
@@ -60,19 +60,25 @@ and rename the whole structure to better indicate the nature of the data:
     }
 
 
-    mk_person, serialize_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = TypeConstructor & overrides ^ Person
 
 
 ``typeit`` will handle creation of the constructor ``mk_person :: Dict -> Person`` and the serializer
 ``serialize_person :: Person -> Dict`` for you.
 
-``type_constructor & overrides`` produces a new type constructor that takes overrides into consideration,
-and ``type_constructor ^ Person`` reads as "type constructor applied on the Person structure" and essentially
-is the same as ``type_constructor(Person)``, but doesn't require parentheses around overrides (and extensions):
+``TypeConstructor & overrides`` produces a new type constructor that takes overrides into consideration,
+and ``TypeConstructor ^ Person`` reads as "type constructor applied on the Person structure" and essentially
+is the same as ``TypeConstructor(Person)``, but doesn't require parentheses around overrides (and extensions):
 
 .. code-block:: python
 
-    (type_constructor & overrides & extension & ...)(Person)
+    (TypeConstructor & overrides & extension & ...)(Person)
+
+If you don't like this combinator syntax, you can use a more verbose version that does exactly the same thing:
+
+.. code-block:: python
+
+    TypeConstructor.override(overrides).override(extension).apply_on(Person)
 
 
 Overrides
@@ -84,7 +90,7 @@ Overrides
 
 
 As you might have noticed in the example above, ``typeit`` generated a snippet with
-a dictionary called ``overrides``, which is passed to the ``type_constructor`` alongside
+a dictionary called ``overrides``, which is passed to the ``TypeConstructor`` alongside
 our ``Person`` type:
 
 .. code-block:: python
@@ -94,7 +100,7 @@ our ``Person`` type:
     }
 
 
-    mk_person, serialize_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = TypeConstructor & overrides ^ Person
 
 
 This is the way we can indicate that our Python structure has different field
@@ -134,7 +140,7 @@ any nested types, for instance:
     }
 
 
-    mk_person, serialize_person = type_constructor & overrides ^ Person
+    mk_person, serialize_person = TypeConstructor & overrides ^ Person
 
 
 Handling errors
@@ -296,12 +302,12 @@ And, of course, you can use Sum Types in signatures of your serializable data:
 .. code-block:: python
 
     from typing import NamedTuple, Sequence
-    from typeit import type_constructor
+    from typeit import TypeConstructor
 
     class Payments(NamedTuple):
         latest: Sequence[Payment]
 
-    mk_payments, serialize_payments = type_constructor ^ Payments
+    mk_payments, serialize_payments = TypeConstructor ^ Payments
 
     json_ready = serialize_payments(Payments(latest=[adam_paid, jane_paid, fred_paid]))
     payments = mk_payments(json_ready)
@@ -314,7 +320,7 @@ Constructor Flags
 
 Constructor flags allow you to define global overrides that affect all structures (toplevel and nested) in a uniform fashion.
 
-``typeit.flags.GLOBAL_NAME_OVERRIDE`` -
+``typeit.flags.GlobalNameOverride`` -
 useful when you want to globally modify output field names from pythonic `snake_style` to another naming convention
 scheme (`camelCase`, `dasherized-names`, etc). Here's a few examples:
 
@@ -329,7 +335,7 @@ scheme (`camelCase`, `dasherized-names`, etc). Here's a few examples:
         field_one: str
         field_two: FoldedData
 
-    constructor, to_serializable = type_constructor & GLOBAL_NAME_OVERRIDE(inflection.camelize) ^ Data
+    constructor, to_serializable = TypeConstructor & GlobalNameOverride(inflection.camelize) ^ Data
 
     data = Data(field_one='one',
                 field_two=FoldedData(field_three='three'))
@@ -349,7 +355,7 @@ the `serialized` dictionary will look like
     }
 
 
-``typeit.flags.NON_STRICT_PRIMITIVES`` -
+``typeit.flags.NonStrictPrimitives`` -
 disables strict checking of primitive types. With this flag, a type constructor for a structure
 with a ``x: int`` attribute annotation would allow input values of ``x`` to be strings that could be parsed
 as integer numbers. Without this flag, the type constructor will reject those values. The same rule is applicable
@@ -357,8 +363,8 @@ to combinations of floats, ints, and bools:
 
 .. code-block:: python
 
-    construct, deconstruct = type_constructor ^ int
-    nonstrict_construct, nonstrict_deconstruct = type_constructor & NON_STRICT_PRIMITIVES ^ int
+    construct, deconstruct = TypeConstructor ^ int
+    nonstrict_construct, nonstrict_deconstruct = TypeConstructor & NonStrictPrimitives ^ int
 
     construct('1')            # raises typeit.Error
     construct(1)              # OK
@@ -366,7 +372,7 @@ to combinations of floats, ints, and bools:
     nonstrict_construct(1)    # OK
 
 
-``typeit.flags.SUM_TYPE_DICT`` - switches the way SumType is parsed and serialized. By default,
+``typeit.flags.SumTypeDict`` - switches the way SumType is parsed and serialized. By default,
 SumType is represented as a tuple of ``(<tag>, <payload>)`` in a serialized form. With this flag,
 it will be represented and parsed from a dictionary:
 
@@ -386,7 +392,7 @@ override it with the following syntax:
 .. code-block:: python
 
     # Use "_type" as the key by which SumType's tag can be found in the mapping
-    mk_sum, serialize_sum = type_constructor & SUM_TYPE_DICT('_type') ^ int
+    mk_sum, serialize_sum = TypeConstructor & SumTypeDict('_type') ^ int
 
 
 Here's an example how this flag changes the behaviour of the parser:
@@ -400,9 +406,9 @@ Here's an example how this flag changes the behaviour of the parser:
     ...        number: str
     ...        amount: str
     ...
-    >>> _, serialize_std_payment = typeit.type_constructor ^ Payment
-    >>> _, serialize_dict_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT ^ Payment
-    >>> _, serialize_dict_v2_payment = typeit.type_constructor & typeit.flags.SUM_TYPE_DICT('$type') ^ Payment
+    >>> _, serialize_std_payment = typeit.TypeConstructor ^ Payment
+    >>> _, serialize_dict_payment = typeit.TypeConstructor & typeit.flags.SumTypeDict ^ Payment
+    >>> _, serialize_dict_v2_payment = typeit.TypeConstructor & typeit.flags.SumTypeDict('$type') ^ Payment
     >>>
     >>> payment = Payment.Card(number='1111 1111 1111 1111', amount='10')
     >>>

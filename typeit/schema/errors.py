@@ -54,7 +54,7 @@ def iter_invalid(error: Invalid,
         traversed_value: Union[None, iface.ITraversable] = data
         for i in e_parts:
             # root object is always an empty string,
-            # it may happen with type_constructor ^ <python built-in type>
+            # it may happen with TypeConstructor ^ <python built-in type>
             if not i:
                 break
             try:

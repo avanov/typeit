@@ -49,7 +49,7 @@ The command will generate ``./docker_config.py`` with definitions similar to thi
     # Source code of ./docker_config.py
 
     from typing import Any, NamedTuple, Optional, Sequence
-    from typeit import type_constructor
+    from typeit import TypeConstructor
 
 
     class ServicesRedis(NamedTuple):
@@ -79,7 +79,7 @@ The command will generate ``./docker_config.py`` with definitions similar to thi
         services: Services
 
 
-    mk_main, serialize_main = type_constructor ^ Main
+    mk_main, serialize_main = TypeConstructor ^ Main
 
 Neat! This already is a good enough representation to play with, and we can verify that
 it does work as expected:
@@ -115,10 +115,10 @@ and ``DockerConfig.version`` is restricted to ``"2.0"`` and ``"2.1"`` only (and 
         services: Services
 
 
-    mk_config, serialize_config = type_constructor ^ DockerConfig
+    mk_config, serialize_config = TypeConstructor ^ DockerConfig
 
 Looks good! There is just one thing that we still want to improve - service ports.
-And for that we need to extend our ``type_constructor``.
+And for that we need to extend our ``TypeConstructor``.
 
 Extending
 ---------
@@ -189,7 +189,7 @@ can be constructed with ``PortMappingSchema`` conversion schema:
 
     # Source code of ./docker_config.py
 
-    Typer = typeit.type_constructor & PortMappingSchema[PortMapping]
+    Typer = typeit.TypeConstructor & PortMappingSchema[PortMapping]
 
 We named the new extended type constructor ``Typer``, and we're done with the task!
 Let's take a look at the final result.
@@ -263,7 +263,7 @@ Here's what we get as the final solution for our task:
         services: Services
 
 
-    Typer = typeit.type_constructor & PortMappingSchema[PortMapping]
+    Typer = typeit.TypeConstructor & PortMappingSchema[PortMapping]
     mk_config, serialize_config = Typer ^ DockerConfig
 
 

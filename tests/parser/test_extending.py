@@ -36,7 +36,7 @@ def test_extending():
             r = (appstruct.currency, appstruct.amount)
             return super().serialize(node, r)
 
-    mk_x, serialize_x = ( typeit.type_constructor
+    mk_x, serialize_x = ( typeit.TypeConstructor
                         & MoneySchema[Money]
                         + schema.types.Enum(Currency)
                         + schema.primitives.NonStrictStr()

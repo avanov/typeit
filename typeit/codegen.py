@@ -122,7 +122,7 @@ def codegen_py(typeit_schema: TypeitSchema,
 
     if typ in PythonPrimitives:
         required_imports.extend([
-            'from typeit import type_constructor',
+            'from typeit import TypeConstructor',
         ])
         if wrappers:
             generated_definitions = [
@@ -134,7 +134,7 @@ def codegen_py(typeit_schema: TypeitSchema,
 
     elif typ is Any:
         required_imports.extend([
-            'from typeit import type_constructor',
+            'from typeit import TypeConstructor',
         ])
         generated_definitions = [
             f'Main = {wrapped_type_literal}'
@@ -142,7 +142,7 @@ def codegen_py(typeit_schema: TypeitSchema,
 
     else:
         required_imports.extend([
-            'from typeit import type_constructor',
+            'from typeit import TypeConstructor',
         ])
         ind = ' ' * indent
         generated_definitions = [f'class {type_name}(NamedTuple):']
@@ -205,10 +205,10 @@ def codegen_py(typeit_schema: TypeitSchema,
                 NEW_LINE +
                 '}'
             ]
-            constructor_part = f'type_constructor & overrides ^ {type_literal}'
+            constructor_part = f'TypeConstructor & overrides ^ {type_literal}'
         else:
             overrides_part = []
-            constructor_part = f'type_constructor ^ {type_literal}'
+            constructor_part = f'TypeConstructor ^ {type_literal}'
 
         generated_definitions.extend(overrides_part)
         constructor_serializer_def = (
