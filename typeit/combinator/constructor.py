@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple, Callable, Dict, Any, Union, List, Type
+from typing import Tuple, Callable, Dict, Any, Union, List, Type, Mapping, Sequence
 
 from pyrsistent import pmap
 # this is different from pyrsistent.typing.PMap unfortunately
@@ -11,8 +11,8 @@ from ..parser import T, decide_node_type, OverrideT
 from .combinator import Combinator
 
 
-TypeTools = Tuple[ Callable[[Dict[str, Any]], T]
-                 , Callable[[T], Union[List, Dict]] ]
+TypeTools = Tuple[ Callable[[Union[int, str, float, Sequence[Any], Mapping[str, Any]]], T]
+                 , Callable[[T], Union[Sequence[Any], Mapping[str, Any]] ]]
 
 
 class _TypeConstructor:
@@ -48,12 +48,12 @@ class _TypeConstructor:
             if isinstance(override, flags._Flag):
                 upd = self.overrides.set(override, override.default_setting)
 
-            elif isinstance(override, schema.meta.TypeExtension):
-                upd = self.overrides.set(override.typ, override)
-
-            elif isinstance(override, tuple):
+            elif isinstance(override, flags._ModifiedFlag):
                 # override is a flag with extra settings
                 upd = self.overrides.set(override[0], override[1])
+
+            elif isinstance(override, schema.meta.TypeExtension):
+                upd = self.overrides.set(override.typ, override)
 
             elif isinstance(override, (dict, RealPMapType)):
                 # override is a field mapping
@@ -70,3 +70,4 @@ class _TypeConstructor:
 
 
 type_constructor = _TypeConstructor()
+TypeConstructor = type_constructor

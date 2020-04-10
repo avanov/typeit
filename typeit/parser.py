@@ -1,7 +1,7 @@
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping,
+    MutableSet, TypeVar, FrozenSet, Mapping, Callable,
 )
 
 from pyrsistent.typing import PMap
@@ -362,13 +362,24 @@ def _maybe_node_for_user_type(
     """ Generates a Colander schema for the given `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
+    global_name_overrider: Callable[[str], str] = overrides.get(flags.GLOBAL_NAME_OVERRIDE, lambda x: x)
+
     if is_named_tuple(typ):
         deserialize_overrides = pmap({
-            overrides[getattr(typ, x)]: x
-            for x in typ._fields
-            if getattr(typ, x) in overrides
+            # try to get a specific override for a field, if it doesn't exist, use the global modifier
+            overrides.get(
+                getattr(typ, python_field_name),
+                global_name_overrider(python_field_name)
+            ): python_field_name
+            for python_field_name in typ._fields
         })
         hints_source = typ
+
+        # apply a local optimisation that discards `deserialize_overrides`
+        # if there is no difference with the original field_names;
+        # it is done to occupy less memory with unnecessary mappings
+        if deserialize_overrides == pmap({x: x for x in typ._fields}):
+            deserialize_overrides = pmap({})
     else:
         # use init-based types;
         # note that overrides are not going to work without named tuples
@@ -383,19 +394,19 @@ def _maybe_node_for_user_type(
     type_schema = schema.nodes.SchemaNode(
         schema.types.Structure(
             typ=typ,
-            overrides=overrides,
             attrs=pvector([x[0] for x in attribute_hints]),
             deserialize_overrides=deserialize_overrides,
         )
     )
 
     for field_name, field_type in attribute_hints:
+        globally_modified_field_name = global_name_overrider(field_name)
         # apply field override, if available
         if deserialize_overrides:
             field = getattr(typ, field_name)
-            serialized_field_name = overrides.get(field, field_name)
+            serialized_field_name = overrides.get(field, globally_modified_field_name)
         else:
-            serialized_field_name = field_name
+            serialized_field_name = globally_modified_field_name
 
         node, memo = decide_node_type(field_type, overrides, memo)
         if node is None:
@@ -404,7 +415,7 @@ def _maybe_node_for_user_type(
                 f'"{typ.__name__}.{field_name}" (from {typ.__module__})'
             )
         # clonning because we mutate it next, and the node
-        # might be already from the cache
+        # might be from the cache already
         node = clone_schema_node(node)
         node.name = serialized_field_name
         type_schema.add(node)

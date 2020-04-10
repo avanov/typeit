@@ -8,7 +8,7 @@ from pyrsistent import pmap, pvector
 from pyrsistent.typing import PMap
 
 from .errors import Invalid
-from .. import sums
+from .. import sums, flags
 from ..definitions import OverridesT
 from .. import interface as iface
 from ..compat import PY_VERSION
@@ -47,7 +47,6 @@ class Structure(col.Mapping):
     """
     def __init__(self,
                  typ: t.Type[iface.IType],
-                 overrides: OverridesT,
                  attrs: t.Sequence[str] = pvector([]),
                  deserialize_overrides: PMap[str, str] = pmap({}),
                  unknown: str = 'ignore',
