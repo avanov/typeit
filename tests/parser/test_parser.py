@@ -435,3 +435,33 @@ def test_name_overrides():
 ])
 def test_parse_builtins_and_sequences(typ):
     mk_x, serialize_x = typeit.TypeConstructor ^ typ
+
+
+def test_default_namedtuple_values():
+    class X(NamedTuple):
+        x: int = 1
+
+    data = {}
+
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+
+    x = mk_x(data)
+    assert isinstance(x, X)
+    assert x.x == 1
+    assert serialize_x(x) == {'x': 1}
+
+
+def test_default_init_based_value():
+    class X:
+        def __init__(self, x: int, y: int = 1):
+            self.x = x
+            self.y = y
+
+    data = {'x': 0}
+
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+
+    x = mk_x(data)
+    assert isinstance(x, X)
+    assert x.x == 0 and x.y == 1
+    assert serialize_x(x) == {'x': 0, 'y': 1}

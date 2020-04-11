@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+
+0.23.0
+===============
+
+* Support for default values at construction time.
+
+
 0.22.0
 ===============
 
