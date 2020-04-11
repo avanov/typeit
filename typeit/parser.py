@@ -4,6 +4,7 @@ from typing import (
     MutableSet, TypeVar, FrozenSet, Mapping, Callable,
 )
 
+import inspect
 import collections
 
 import colander as col
@@ -376,6 +377,7 @@ def _maybe_node_for_user_type(
         hints_source = typ
         attribute_hints = _type_hints_getter(hints_source)
         get_override_identifier = lambda x: getattr(typ, x)
+        defaults_source = typ.__new__
 
         deserialize_overrides = pmap({
             # try to get a specific override for a field, if it doesn't exist, use the global modifier
@@ -396,6 +398,7 @@ def _maybe_node_for_user_type(
         hints_source = typ.__init__
         attribute_hints = _type_hints_getter(hints_source)
         get_override_identifier = lambda x: (typ, x)
+        defaults_source = typ.__init__
 
         deserialize_overrides = pmap({
             # try to get a specific override for a field, if it doesn't exist, use the global modifier
@@ -411,6 +414,11 @@ def _maybe_node_for_user_type(
         if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}):
             deserialize_overrides = pmap({})
 
+    defaults = {
+        k: v.default
+        for k, v in inspect.signature(defaults_source).parameters.items()
+        if k != 'self' and v.default != inspect.Parameter.empty
+    }
     type_schema = schema.nodes.SchemaNode(
         schema.types.Structure(
             typ=typ,
@@ -438,6 +446,7 @@ def _maybe_node_for_user_type(
         # might be from the cache already
         node = clone_schema_node(node)
         node.name = serialized_field_name
+        node.missing = defaults.get(field_name, node.missing)
         type_schema.add(node)
     return type_schema, memo
 

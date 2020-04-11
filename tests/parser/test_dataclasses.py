@@ -11,7 +11,7 @@ if PY_VERSION >= (3, 7):
         class InventoryItem:
             name: str
             unit_price: float
-            quantity_on_hand: int = 0
+            quantity_on_hand: int
 
         overrides = {
             (InventoryItem, 'quantity_on_hand'): 'quantity'
@@ -27,3 +27,17 @@ if PY_VERSION >= (3, 7):
         x = mk_inv(serialized)
         assert isinstance(x, InventoryItem)
         assert serialize_inv(x) == serialized
+
+    def test_with_default_values():
+
+        @dataclass
+        class X:
+            one: int
+            two: int = 2
+            three: int = 3
+
+        data = {'one': 1}
+
+        mk_x, serialize_x = typeit.TypeConstructor ^ X
+        x = mk_x(data)
+        assert serialize_x(x) == {'one': 1, 'two': 2, 'three': 3}

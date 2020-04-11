@@ -1,10 +1,17 @@
 import re
 import keyword
 import string
-from typing import Any, Type
+from typing import Any, Type, TypeVar
+
+from colander import TupleSchema, SequenceSchema
+
+from typeit.schema.nodes import SchemaNode
 
 NORMALIZATION_PREFIX = 'overridden__'
 SUPPORTED_CHARS = string.ascii_letters + string.digits
+
+
+T = TypeVar('T', SchemaNode, TupleSchema, SequenceSchema)
 
 
 def normalize_name(name: str,
@@ -28,7 +35,7 @@ def is_named_tuple(typ: Type[Any]) -> bool:
     return hasattr(typ, '_fields')
 
 
-def clone_schema_node(node):
+def clone_schema_node(node: T) -> T:
     """ Clonning the node and reassigning the same children,
     because clonning is recursive, but we are only interested
     in a new version of the outermost schema node, the children nodes
