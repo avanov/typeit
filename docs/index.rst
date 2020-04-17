@@ -6,8 +6,8 @@
 Type it!
 ========
 
-**typeit** brings typed data into your Python 3.6+ projects.
-
+**typeit** infers Python types from a sample JSON/YAML data, and provides you with the tools
+for serialising and parsing it. It works superb on Python 3.6 and above.
 
 Quickstart Guide
 ================

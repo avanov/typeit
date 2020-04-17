@@ -84,11 +84,6 @@ If you don't like this combinator syntax, you can use a more verbose version tha
 Overrides
 ---------
 
-.. CAUTION::
-
-    This functionality may change in a backward-incompatible manner.
-
-
 As you might have noticed in the example above, ``typeit`` generated a snippet with
 a dictionary called ``overrides``, which is passed to the ``TypeConstructor`` alongside
 our ``Person`` type:
@@ -141,6 +136,27 @@ any nested types, for instance:
 
 
     mk_person, serialize_person = TypeConstructor & overrides ^ Person
+
+
+.. note::
+
+    Because **dataclasses** do not provide class-level property attributes (``Person.first_name`` in the example above),
+    the syntax for their overrides needs to be slightly different:
+
+    .. code-block:: python
+
+        @dataclass
+        class Person:
+            first_name: str
+            initial: Optional[str]
+            last_name: str
+            address: Optional[Address]
+
+
+        overrides = {
+            (Person, 'first_name'): 'first-name',
+            (Address, 'postal_code'): 'postal-code',
+        }
 
 
 Handling errors

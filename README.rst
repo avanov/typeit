@@ -22,9 +22,10 @@
 Typeit
 ------
 
-`typeit` brings typed data into your project.
+**typeit** infers Python types from a sample JSON/YAML data, and provides you with the tools
+for serialising and parsing it. It works superb on Python 3.6 and above.
 
-Start using it by automatically generating types for your JSON payloads:
+Start using it by generating types for your JSON payloads:
 
 .. code-block:: bash
 
