@@ -8,16 +8,13 @@ from pyrsistent import pmap, pvector
 from pyrsistent.typing import PMap
 
 from .errors import Invalid
-from .. import sums, flags
-from ..definitions import OverridesT
+from .. import sums
 from .. import interface as iface
-from ..compat import PY_VERSION
 from . import primitives
 from . import meta
 from . import nodes
 
 
-SchemaType = col.SchemaType
 Null = nodes.Null
 
 
@@ -42,7 +39,7 @@ class Path(primitives.Str):
             raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
-class Structure(col.Mapping):
+class Structure(col.Mapping, metaclass=meta.SubscriptableSchemaTypeM):
     """ SchemaNode for NamedTuples and derived types.
     """
     def __init__(self,
@@ -91,7 +88,7 @@ class Tuple(col.Tuple, metaclass=meta.SubscriptableSchemaTypeM):
     pass
 
 
-class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Sum(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
     def __init__(
         self,
         typ: sums.SumType,
@@ -106,7 +103,7 @@ class Sum(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         self.typ = typ
         self.variant_nodes = variant_nodes
         self.as_dict_key = as_dict_key
-        self.variant_schema_types: t.Set[col.SchemaType] = {
+        self.variant_schema_types: t.Set[meta.SchemaType] = {
             x.typ for _, x in variant_nodes
         }
 
@@ -209,16 +206,10 @@ class Enum(primitives.Str):
             raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
+generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = lambda x: (insp.get_origin(x),)
 
 
-
-generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = (
-    insp.get_generic_bases if PY_VERSION < (3, 7) else
-    lambda x: (insp.get_origin(x),)
-)
-
-
-class Literal(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Literal(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
     def __init__(self, variants: t.FrozenSet):
         super().__init__()
         self.variants = variants
@@ -248,7 +239,7 @@ class Literal(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         )
 
 
-class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
     """ This node handles typing.Union[T1, T2, ...] cases.
     Please note that typing.Optional[T] is normalized by parser as typing.Union[None, T],
     and this Union schema type will not have None among its variants. Instead,
@@ -270,7 +261,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         super().__init__()
         self.primitive_types = primitive_types
         self.variant_nodes = variant_nodes
-        self.variant_schema_types: t.Set[col.SchemaType] = {
+        self.variant_schema_types: t.Set[meta.SchemaType] = {
             x.typ for _, x in variant_nodes
         }
 
@@ -383,7 +374,7 @@ class Union(SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
 
 SUBCLASS_BASED_TO_SCHEMA_TYPE: t.Mapping[
-    t.Tuple[t.Type, ...], t.Type[SchemaType],
+    t.Tuple[t.Type, ...], t.Type[meta.SchemaType],
 ] = {
     (std_enum.Enum,): Enum,
     # Pathlib's PurePath and its derivatives

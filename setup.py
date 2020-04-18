@@ -27,7 +27,7 @@ def requirements(at_path: Path):
             row = row.strip()
             if row and not (row.startswith('#') or row.startswith('http')):
                 requires.append(row)
-        return requires
+    return requires
 
 
 with (here / 'README.rst').open() as f:
@@ -38,7 +38,7 @@ with (here / 'README.rst').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.23.0',
+      version='0.24.0',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[

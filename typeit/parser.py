@@ -169,7 +169,14 @@ def _maybe_node_for_sum_type(
     supported_type=frozenset({}),
     supported_origin=frozenset({})
 ) -> Optional[schema.nodes.SchemaNode]:
-    if issubclass(typ, sums.SumType):
+    try:
+        matched = issubclass(typ, sums.SumType)
+    except TypeError:
+        # TypeError: issubclass() arg 1 must be a class
+        # ``typ`` is not a class (or a Generic[T] class), skip the rest
+        matched = False
+
+    if matched:
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
         variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
         for variant in typ:
@@ -198,7 +205,6 @@ def _maybe_node_for_literal(
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Literal,
-        insp.get_generic_type(Literal)  # py3.6 fix
     }),
     _supported_literal_types=frozenset({
         bool, int, str, bytes, NoneType,
@@ -208,9 +214,8 @@ def _maybe_node_for_literal(
     types: https://mypy.readthedocs.io/en/latest/literal_types.html
     """
     if typ in supported_type \
-    or insp.get_origin(typ) in supported_origin \
-    or (compat.PY36 and insp.get_generic_type(typ) in supported_origin):
-        inner = inner_type_boundaries(typ) if not compat.PY36 else typ.__values__
+    or insp.get_origin(typ) in supported_origin:
+        inner = inner_type_boundaries(typ)
         for x in inner:
             if type(x) not in _supported_literal_types:
                 raise TypeError(f'Literals cannot be defined with values of type {type(x)}')
@@ -240,10 +245,6 @@ def _maybe_node_for_list(
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
-            # In case of a non-clarified collection
-            # (collection without defined item type),
-            # Python 3.6 will have empty inner type,
-            # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
         if pyt.PVector in (typ, insp.get_origin(typ)):
             seq_type = schema.nodes.PVectorSchema
@@ -279,9 +280,6 @@ def _maybe_node_for_set(
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
-            # In case of a non-clarified set (set without defined collection item type),
-            # Python 3.6 will have empty inner type,
-            # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
         node, memo = decide_node_type(inner, overrides, memo)
         rv = schema.nodes.SetSchema(
@@ -338,7 +336,6 @@ def _maybe_node_for_dict(
         Dict,
         dict,
         collections.abc.Mapping,
-        Mapping,  # py3.6
         pyt.PMap,
     })
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
@@ -357,7 +354,7 @@ def _maybe_node_for_dict(
     return None, memo
 
 
-_type_hints_getter = lambda x: list(filter(
+_type_hints_getter: Callable[[Type], Sequence[Tuple[str, Type]]] = lambda x: list(filter(
     lambda x: x[1] is not NoneType,
     get_type_hints(x).items()
 ))
@@ -368,12 +365,43 @@ def _maybe_node_for_user_type(
     overrides: OverridesT,
     memo: MemoType,
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
-    """ Generates a Colander schema for the given `typ` that is capable
+    """ Generates a Colander schema for the given user-defined `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
     global_name_overrider: Callable[[str], str] = overrides.get(flags.GlobalNameOverride, flags.Identity)
+    is_generic = insp.is_generic_type(typ)
 
-    if is_named_tuple(typ):
+    if is_generic:
+        # get the base class that was turned into Generic[T, ...]
+        hints_source = insp.get_origin(typ)
+        # now we need to map generic type variables to the bound class types,
+        # e.g. we map Generic[T,U,V, ...] to actual types of MyClass[int, float, str, ...]
+        generic_repr = insp.get_generic_bases(hints_source)
+        generic_vars_ordered = (insp.get_args(x)[0] for x in generic_repr)
+        bound_type_args = insp.get_args(typ)
+        type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
+        # resolve type hints
+        attribute_hints = [(field_name, type_var_to_type[type_var])
+                           for field_name, type_var in _type_hints_getter(hints_source)]
+        # Generic types should not have default values
+        defaults_source = lambda: ()
+        # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,
+        # TODO: consider reducing duplication between this and the logic from init-based types (see below)
+        deserialize_overrides = pmap({
+            # try to get a specific override for a field, if it doesn't exist, use the global modifier
+            overrides.get(
+                (typ, python_field_name),
+                global_name_overrider(python_field_name)
+            ): python_field_name
+            for python_field_name, _ in attribute_hints
+        })
+        # apply a local optimisation that discards `deserialize_overrides`
+        # if there is no difference with the original field_names;
+        # it is done to occupy less memory with unnecessary mappings
+        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}):
+            deserialize_overrides = pmap({})
+
+    elif is_named_tuple(typ):
         hints_source = typ
         attribute_hints = _type_hints_getter(hints_source)
         get_override_identifier = lambda x: getattr(typ, x)
@@ -419,13 +447,22 @@ def _maybe_node_for_user_type(
         for k, v in inspect.signature(defaults_source).parameters.items()
         if k != 'self' and v.default != inspect.Parameter.empty
     }
-    type_schema = schema.nodes.SchemaNode(
-        schema.types.Structure(
-            typ=typ,
-            attrs=pvector([x[0] for x in attribute_hints]),
-            deserialize_overrides=deserialize_overrides,
-        )
+
+    if is_generic and hints_source in overrides:
+        # Generic types may have their own custom Schemas defined
+        # as a TypeExtension through overrides
+        overridden: TypeExtension = overrides[hints_source]
+        schema_type_type, _node_children_ = overridden.schema
+    else:
+        schema_type_type = schema.types.Structure
+
+    schema_type = schema_type_type(
+        typ=typ,
+        attrs=pvector([x[0] for x in attribute_hints]),
+        deserialize_overrides=deserialize_overrides,
     )
+
+    type_schema = schema.nodes.SchemaNode(schema_type)
 
     for field_name, field_type in attribute_hints:
         globally_modified_field_name = global_name_overrider(field_name)
@@ -458,26 +495,31 @@ def _maybe_node_for_overridden(
 ) -> Tuple[Any, MemoType]:
     if typ in overrides:
         override: schema.TypeExtension = overrides[typ]
-        return override.schema, memo
+        schema_type_type, schema_node_children = override.schema
+        type_schema = schema.nodes.SchemaNode(schema_type_type())
+        for child in schema_node_children:
+            type_schema.add(child)
+        return type_schema, memo
     return None, memo
 
 
-PARSING_ORDER = [ _maybe_node_for_overridden
-                , _maybe_node_for_none
-                , _maybe_node_for_primitive
-                , _maybe_node_for_type_var
-                , _maybe_node_for_union
-                , _maybe_node_for_list
-                , _maybe_node_for_tuple
-                , _maybe_node_for_dict
-                , _maybe_node_for_set
-                , _maybe_node_for_literal
-                , _maybe_node_for_sum_type
-                , _maybe_node_for_subclass_based
-                # at this point it could be a user-defined type,
-                # so the parser may do another recursive iteration
-                # through the same plan
-                , _maybe_node_for_user_type ]
+PARSING_ORDER = pvector([ _maybe_node_for_overridden
+                        , _maybe_node_for_none
+                        , _maybe_node_for_primitive
+                        , _maybe_node_for_type_var
+                        , _maybe_node_for_union
+                        , _maybe_node_for_list
+                        , _maybe_node_for_tuple
+                        , _maybe_node_for_dict
+                        , _maybe_node_for_set
+                        , _maybe_node_for_literal
+                        , _maybe_node_for_sum_type
+                        , _maybe_node_for_subclass_based
+                        # at this point it could be a user-defined type,
+                        # so the parser may do another recursive iteration
+                        # through the same plan
+                        , _maybe_node_for_user_type
+                        ])
 
 
 CompoundSchema = Union[schema.nodes.SchemaNode, col.TupleSchema, col.SequenceSchema]

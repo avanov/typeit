@@ -23,22 +23,14 @@ from .utils import normalize_name
 from .definitions import OverridesT, NO_OVERRIDES
 from .definitions import FieldDefinition
 from . import interface as iface
-from .compat import PY_VERSION
 
 
 def _type_name_getter(typ: Type[IType]) -> str:
     return typ.__name__
 
 
-if PY_VERSION < (3, 7):
-    # # List, Dict, Any... for Python 3.6(__name__)
-    def _annotation_name_getter(typ: Type[IType]) -> str:
-        return typ.__name__
-
-else:
-    # and 3.7+ (_name)
-    def _annotation_name_getter(typ: Type[INamedTuple]) -> str:
-        return typ._name
+def _annotation_name_getter(typ: Type[INamedTuple]) -> str:
+    return typ._name
 
 
 BuiltinTypes = Union[
@@ -49,8 +41,7 @@ BuiltinTypes = Union[
 ]
 
 
-# extra bool at the end is for Python 3.6 compatibility
-PythonPrimitives = frozenset(insp.get_args(BuiltinTypes) + (None, bool))
+PythonPrimitives = frozenset(insp.get_args(BuiltinTypes) + (None, ))
 
 
 JsonType = Union[

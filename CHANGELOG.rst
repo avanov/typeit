@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+0.24.0
+===============
+
+* Dropped support for Python 3.6;
+* Support for classes deriving `Generic[T, U, ...]`;
+* Added new type ``typeit.custom_types.JsonString`` - helpful when dealing with JSON strings encoded into JSON strings.
+
 
 0.23.0
 ===============

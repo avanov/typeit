@@ -84,11 +84,6 @@ If you don't like this combinator syntax, you can use a more verbose version tha
 Overrides
 ---------
 
-.. CAUTION::
-
-    This functionality may change in a backward-incompatible manner.
-
-
 As you might have noticed in the example above, ``typeit`` generated a snippet with
 a dictionary called ``overrides``, which is passed to the ``TypeConstructor`` alongside
 our ``Person`` type:
@@ -143,6 +138,27 @@ any nested types, for instance:
     mk_person, serialize_person = TypeConstructor & overrides ^ Person
 
 
+.. note::
+
+    Because **dataclasses** do not provide class-level property attributes (``Person.first_name`` in the example above),
+    the syntax for their overrides needs to be slightly different:
+
+    .. code-block:: python
+
+        @dataclass
+        class Person:
+            first_name: str
+            initial: Optional[str]
+            last_name: str
+            address: Optional[Address]
+
+
+        overrides = {
+            (Person, 'first_name'): 'first-name',
+            (Address, 'postal_code'): 'postal-code',
+        }
+
+
 Handling errors
 ---------------
 
@@ -180,13 +196,15 @@ Supported types
 * ``set`` and ``frozenset``
 * ``typing.Any`` passes any value as is
 * ``typing.Union`` including nested structures
-* ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``.
+* ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``;
 * ``typing.Set`` and ``typing.FrozenSet``
 * ``typing.Tuple``
 * ``typing.Dict``
 * ``typing.Mapping``
-* ``typing.Literal`` (``typing_extensions.Literal`` on Python prior 3.8)
+* ``typing.Literal`` (``typing_extensions.Literal`` on Python prior 3.8);
+* ``typing.Generic[T, U, ...]``
 * ``typeit.sums.SumType``
+* ``typeit.custom_types.JsonString`` - helpful when dealing with JSON strings encoded into JSON strings;
 * ``enum.Enum`` derivatives
 * ``pathlib.Path`` derivatives
 * ``pyrsistent.typing.PVector``

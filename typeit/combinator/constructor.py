@@ -1,11 +1,12 @@
 from functools import partial
-from typing import Tuple, Callable, Dict, Any, Union, List, Type, Mapping, Sequence
+from typing import Tuple, Callable, Dict, Any, Union, Type, Mapping, Sequence
 
 from pyrsistent import pmap
 # this is different from pyrsistent.typing.PMap unfortunately
 from pyrsistent import PMap as RealPMapType
 
 from .. import schema, flags
+from ..custom_types.json_string import JsonStringSchema, JsonString
 from ..definitions import OverridesT, NO_OVERRIDES
 from ..parser import T, decide_node_type, OverrideT
 from .combinator import Combinator
@@ -33,7 +34,7 @@ class _TypeConstructor:
         except TypeError as e:
             raise TypeError(
                 f'Cannot create a type constructor for {typ}: {e}'
-            )
+            ) from e
         self.memo = memo
         return (
             partial(schema.errors.errors_aware_constructor, schema_node.deserialize),
@@ -73,5 +74,5 @@ class _TypeConstructor:
     apply_on = __xor__
 
 
-type_constructor = _TypeConstructor()
+type_constructor = _TypeConstructor() & JsonStringSchema[JsonString]
 TypeConstructor = type_constructor
