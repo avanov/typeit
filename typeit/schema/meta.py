@@ -1,18 +1,27 @@
-from typing import Type, NamedTuple
+from typing import Type, NamedTuple, Tuple, Any
+
+import colander as col
+from pyrsistent import pvector
+from pyrsistent.typing import PVector
+
 from . import nodes
 from ..combinator.combinator import Combinator
 
 
+SchemaType = col.SchemaType
+
+
 class TypeExtension(NamedTuple):
     typ: Type
-    schema: nodes.SchemaNode
+    schema: Tuple[Type[SchemaType], PVector[Any]]
 
     def __and__(self, other) -> Combinator:
         return Combinator() & self & other
 
     def __add__(self, other) -> 'TypeExtension':
-        self.schema.add(nodes.SchemaNode(other))
-        return self
+        return self._replace(
+            schema=(self.schema[0], self.schema[1].append(nodes.SchemaNode(other)))
+        )
 
 
 class SubscriptableSchemaTypeM(type):
@@ -22,10 +31,11 @@ class SubscriptableSchemaTypeM(type):
     The *M suffix in the name stands for "Meta" to indicate that
     this class should be used only as a metaclass.
     """
-    def __getitem__(cls, item: Type) -> TypeExtension:
+    def __getitem__(cls: Type[SchemaType], item: Type) -> TypeExtension:
+        # ``cls`` is a schema type here
         return TypeExtension(
             typ=item,
-            schema=nodes.SchemaNode(cls()),
+            schema=(cls, pvector()),
         )
 
     def __repr__(self) -> str:

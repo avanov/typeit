@@ -1,6 +1,10 @@
+import sys
 from pathlib import Path
 from setuptools import setup
 from setuptools import find_packages
+
+
+PY_VERSION = sys.version_info[:2]
 
 
 here = Path(__file__).absolute().parent
@@ -27,7 +31,7 @@ def requirements(at_path: Path):
             row = row.strip()
             if row and not (row.startswith('#') or row.startswith('http')):
                 requires.append(row)
-        return requires
+    return requires
 
 
 with (here / 'README.rst').open() as f:
@@ -38,7 +42,7 @@ with (here / 'README.rst').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='0.23.0',
+      version='0.24.0',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[
@@ -59,7 +63,7 @@ setup(name='typeit',
       zip_safe=False,
       test_suite='tests',
       tests_require=['pytest', 'coverage'],
-      install_requires=requirements(here / 'requirements' / 'minimal.txt'),
+      install_requires=requirements(here / 'requirements' / 'minimal.txt') + (['dataclasses'] if PY_VERSION < (3, 7) else []),
       extras_require=extras_require(),
       entry_points={
           'console_scripts': [

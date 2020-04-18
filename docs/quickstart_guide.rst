@@ -196,13 +196,15 @@ Supported types
 * ``set`` and ``frozenset``
 * ``typing.Any`` passes any value as is
 * ``typing.Union`` including nested structures
-* ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``.
+* ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``;
 * ``typing.Set`` and ``typing.FrozenSet``
 * ``typing.Tuple``
 * ``typing.Dict``
 * ``typing.Mapping``
-* ``typing.Literal`` (``typing_extensions.Literal`` on Python prior 3.8)
+* ``typing.Literal`` (``typing_extensions.Literal`` on Python prior 3.8);
+* ``typing.Generic[T, U, ...]``
 * ``typeit.sums.SumType``
+* ``typeit.custom_types.JsonString`` - helpful when dealing with JSON strings encoded into JSON strings;
 * ``enum.Enum`` derivatives
 * ``pathlib.Path`` derivatives
 * ``pyrsistent.typing.PVector``
