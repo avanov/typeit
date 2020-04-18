@@ -4,7 +4,6 @@ import pytest
 
 import typeit
 from typeit import TypeConstructor, flags
-from typeit.compat import PY36
 
 
 def test_type_with_unions():
@@ -71,13 +70,8 @@ def test_union_primitive_match():
     x = mk_x({'x': 1.0})
     assert isinstance(x.x, float)
 
-    if not PY36:
-        # Python 3.6 has a bug that drops bool types from
-        # unions that include int already, so
-        # x: Union[int, bool] -- will be reduced to just `x: int`
-        # x: Union[str, bool] -- will be left as is
-        x = mk_x({'x': True})
-        assert isinstance(x.x, bool)
+    x = mk_x({'x': True})
+    assert isinstance(x.x, bool)
 
     data = {'x': '1'}
     x = mk_x(data)

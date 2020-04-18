@@ -205,7 +205,6 @@ def _maybe_node_for_literal(
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Literal,
-        insp.get_generic_type(Literal)  # py3.6 fix
     }),
     _supported_literal_types=frozenset({
         bool, int, str, bytes, NoneType,
@@ -215,9 +214,8 @@ def _maybe_node_for_literal(
     types: https://mypy.readthedocs.io/en/latest/literal_types.html
     """
     if typ in supported_type \
-    or insp.get_origin(typ) in supported_origin \
-    or (compat.PY36 and insp.get_generic_type(typ) in supported_origin):
-        inner = inner_type_boundaries(typ) if not compat.PY36 else typ.__values__
+    or insp.get_origin(typ) in supported_origin:
+        inner = inner_type_boundaries(typ)
         for x in inner:
             if type(x) not in _supported_literal_types:
                 raise TypeError(f'Literals cannot be defined with values of type {type(x)}')
@@ -247,10 +245,6 @@ def _maybe_node_for_list(
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
-            # In case of a non-clarified collection
-            # (collection without defined item type),
-            # Python 3.6 will have empty inner type,
-            # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
         if pyt.PVector in (typ, insp.get_origin(typ)):
             seq_type = schema.nodes.PVectorSchema
@@ -286,9 +280,6 @@ def _maybe_node_for_set(
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
-            # In case of a non-clarified set (set without defined collection item type),
-            # Python 3.6 will have empty inner type,
-            # whereas Python 3.7 will contain a single TypeVar.
             inner = Any
         node, memo = decide_node_type(inner, overrides, memo)
         rv = schema.nodes.SetSchema(
@@ -345,7 +336,6 @@ def _maybe_node_for_dict(
         Dict,
         dict,
         collections.abc.Mapping,
-        Mapping,  # py3.6
         pyt.PMap,
     })
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
@@ -382,9 +372,8 @@ def _maybe_node_for_user_type(
     is_generic = insp.is_generic_type(typ)
 
     if is_generic:
-        origin_getter = compat.PY36 and insp.get_generic_type or insp.get_origin
         # get the base class that was turned into Generic[T, ...]
-        hints_source = origin_getter(typ)
+        hints_source = insp.get_origin(typ)
         # now we need to map generic type variables to the bound class types,
         # e.g. we map Generic[T,U,V, ...] to actual types of MyClass[int, float, str, ...]
         generic_repr = insp.get_generic_bases(hints_source)

@@ -10,7 +10,6 @@ from pyrsistent.typing import PMap
 from .errors import Invalid
 from .. import sums
 from .. import interface as iface
-from ..compat import PY_VERSION
 from . import primitives
 from . import meta
 from . import nodes
@@ -207,13 +206,7 @@ class Enum(primitives.Str):
             raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
-
-
-
-generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = (
-    insp.get_generic_bases if PY_VERSION < (3, 7) else
-    lambda x: (insp.get_origin(x),)
-)
+generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = lambda x: (insp.get_origin(x),)
 
 
 class Literal(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):

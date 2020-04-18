@@ -1,10 +1,6 @@
-import sys
 from pathlib import Path
 from setuptools import setup
 from setuptools import find_packages
-
-
-PY_VERSION = sys.version_info[:2]
 
 
 here = Path(__file__).absolute().parent
@@ -63,7 +59,7 @@ setup(name='typeit',
       zip_safe=False,
       test_suite='tests',
       tests_require=['pytest', 'coverage'],
-      install_requires=requirements(here / 'requirements' / 'minimal.txt') + (['dataclasses'] if PY_VERSION < (3, 7) else []),
+      install_requires=requirements(here / 'requirements' / 'minimal.txt'),
       extras_require=extras_require(),
       entry_points={
           'console_scripts': [
