@@ -7,7 +7,6 @@ from typing import (
 import inspect
 import collections
 
-import colander as col
 import typing_inspect as insp
 from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
@@ -15,7 +14,6 @@ from pyrsistent import typing as pyt
 from .compat import Literal
 from .definitions import OverridesT
 from .utils import is_named_tuple, clone_schema_node
-from . import compat
 from . import flags
 from . import schema
 from . import sums
@@ -239,7 +237,7 @@ def _maybe_node_for_list(
         list,
         pyt.PVector,
     })
-) -> Tuple[Optional[col.SequenceSchema], MemoType]:
+) -> Tuple[Optional[schema.nodes.SequenceSchema], MemoType]:
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         try:
@@ -249,7 +247,7 @@ def _maybe_node_for_list(
         if pyt.PVector in (typ, insp.get_origin(typ)):
             seq_type = schema.nodes.PVectorSchema
         else:
-            seq_type = col.SequenceSchema
+            seq_type = schema.nodes.SequenceSchema
         node, memo = decide_node_type(inner, overrides, memo)
         return seq_type(node), memo
     return None, memo
@@ -274,7 +272,7 @@ def _maybe_node_for_set(
         set,
         frozenset,
     })
-) -> Optional[col.SequenceSchema]:
+) -> Optional[schema.nodes.SequenceSchema]:
     origin = insp.get_origin(typ)
     if typ in supported_type or origin in supported_origin:
         try:
@@ -303,7 +301,7 @@ def _maybe_node_for_tuple(
     supported_origin=frozenset({
         tuple, Tuple,
     })
-) -> Tuple[Optional[col.TupleSchema], MemoType]:
+) -> Tuple[Optional[schema.nodes.TupleSchema], MemoType]:
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         inner_types = inner_type_boundaries(typ)
         if Ellipsis in inner_types:
@@ -315,7 +313,7 @@ def _maybe_node_for_tuple(
                 f'variable-length collection, and consider '
                 f'pyrsistent.pvector for immutability.'
             )
-        node = col.TupleSchema()
+        node = schema.nodes.TupleSchema()
         # Add tuple elements to the tuple node definition
         for t in inner_types:
             n, memo = decide_node_type(t, overrides, memo)
@@ -347,10 +345,19 @@ def _maybe_node_for_dict(
     """
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
         if pyt.PMap in (typ, insp.get_origin(typ)):
-            map_type = schema.nodes.PMapSchema
+            schema_node_type = schema.nodes.PMapSchema
         else:
-            map_type = schema.nodes.DictSchema
-        return map_type(), memo
+            schema_node_type = schema.nodes.SchemaNode
+
+        try:
+            key_type, value_type = insp.get_args(typ)
+        except ValueError:
+            # Mapping doesn't provide key/value types
+            key_type, value_type = Any, Any
+        key_node, memo = decide_node_type(key_type, overrides, memo)
+        value_node, memo = decide_node_type(value_type, overrides, memo)
+        mapping_type = schema.types.TypedMapping(key_node=key_node, value_node=value_node)
+        return schema_node_type(mapping_type), memo
     return None, memo
 
 
@@ -522,7 +529,7 @@ PARSING_ORDER = pvector([ _maybe_node_for_overridden
                         ])
 
 
-CompoundSchema = Union[schema.nodes.SchemaNode, col.TupleSchema, col.SequenceSchema]
+CompoundSchema = Union[schema.nodes.SchemaNode, schema.nodes.TupleSchema, schema.nodes.SequenceSchema]
 
 
 def decide_node_type(

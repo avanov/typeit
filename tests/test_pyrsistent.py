@@ -9,8 +9,8 @@ import pyrsistent as ps
 def test_pyrsistent_types():
     class X(NamedTuple):
         a: ps.typing.PMap[str, Any]
-        b: ps.typing.PVector[ps.typing.PMap]
-        c: Optional[ps.typing.PMap]
+        b: ps.typing.PVector[ps.typing.PMap[str, Any]]
+        c: Optional[ps.typing.PMap[str, Any]]
 
     mk_x, serialize_x = ty.TypeConstructor ^ X
 
