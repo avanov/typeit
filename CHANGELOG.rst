@@ -5,7 +5,7 @@ CHANGELOG
 0.25.0
 ===============
 
-* Mapping types are now properly deserialize/serialize non-string hashable values
+* Mapping types properly deserialize/serialize non-string hashable values.
 
 
 0.24.0
