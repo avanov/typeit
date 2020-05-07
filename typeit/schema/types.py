@@ -18,6 +18,24 @@ from . import nodes
 Null = nodes.Null
 
 
+class TypedMapping(col.Mapping):
+    def __init__(self, *, key_node: nodes.SchemaNode, value_node: nodes.SchemaNode):
+        # https://docs.pylonsproject.org/projects/colander/en/latest/api.html#colander.Mapping
+        super().__init__(unknown='preserve')
+        self.key_node = key_node
+        self.value_node = value_node
+
+    def deserialize(self, node, cstruct):
+        r = super().deserialize(node, cstruct)
+        if r in (Null, None):
+            return r
+        return {self.key_node.deserialize(k): self.value_node.deserialize(v) for k, v in r.items()}
+
+    def serialize(self, node, appstruct):
+        r = super().serialize(node, appstruct)
+        return r
+
+
 class Path(primitives.Str):
     def __init__(self, typ: t.Type[pathlib.PurePath], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

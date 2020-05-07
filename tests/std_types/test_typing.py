@@ -1,6 +1,10 @@
 import collections
-from typing import Mapping, Any, Union, Optional, Sequence
+from enum import Enum
+from typing import Mapping, Any, Union, Optional, Sequence, Dict
 from typing import NamedTuple
+
+from pyrsistent.typing import PMap
+
 from typeit.compat import Literal
 
 import pytest
@@ -9,11 +13,40 @@ from typeit import TypeConstructor, Error
 
 def test_mapping():
     class X(NamedTuple):
-        x: Mapping
-        y: Mapping[str, Any]
+        x: Mapping[Any, Any]
+        y: Dict[str, Any]
         z: collections.abc.Mapping
 
     mk_x, serialize_x = TypeConstructor ^ X
+    sub = {'a': 1, 'b': '2'}
+    x = mk_x({'x': sub, 'y': sub, 'z': sub})
+    assert x.x['a'] == 1
+    assert x.x['b'] == '2'
+    assert x.y['a'] == 1
+    assert x.y['b'] == '2'
+    assert x.z['a'] == 1
+    assert x.z['b'] == '2'
+
+
+def test_typed_mapping():
+    class Attr(Enum):
+        x = 'x'
+
+    class X(NamedTuple):
+        map_: Mapping[Attr, str]
+        dict_: Dict[Attr, str]
+        pmap_: PMap[Attr, str]
+
+    mk_x, serialize_x = TypeConstructor ^ X
+
+    x = mk_x({
+        'map_': {'x': 'value'},
+        'dict_': {'x': 'value'},
+        'pmap_': {'x': 'value'}
+    })
+    assert x.map_[Attr.x] == 'value'
+    assert x.dict_[Attr.x] == 'value'
+    assert x.pmap_[Attr.x] == 'value'
 
 
 def test_sequence():

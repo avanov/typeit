@@ -5,6 +5,10 @@ import colander as col
 Null = col.null
 
 
+class SequenceSchema(col.SequenceSchema):
+    pass
+
+
 class SchemaNode(col.SchemaNode):
     """ Colander's SchemaNode doesn't show node type in it's repr,
     we fix it with this subclass.
@@ -13,13 +17,11 @@ class SchemaNode(col.SchemaNode):
         return f'SchemaNode({self.typ})'
 
 
-class DictSchema(SchemaNode):
-    @staticmethod
-    def schema_type():
-        return col.Mapping(unknown='preserve')
+class TupleSchema(col.TupleSchema):
+    pass
 
 
-class SetSchema(col.SequenceSchema):
+class SetSchema(SequenceSchema):
     def __init__(self, *args, frozen=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.frozen = frozen
@@ -41,7 +43,7 @@ class PVectorSchema(col.SequenceSchema):
         return pvector(r)
 
 
-class PMapSchema(DictSchema):
+class PMapSchema(SchemaNode):
     def deserialize(self, *args, **kwargs):
         r = super().deserialize(*args, **kwargs)
         if r in (Null, None):
