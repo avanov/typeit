@@ -11,14 +11,14 @@ import typing_inspect as insp
 from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
 
-from .compat import Literal
-from .definitions import OverridesT
-from .utils import is_named_tuple, clone_schema_node
-from . import flags
-from . import schema
-from . import sums
-from .schema.meta import TypeExtension
-from . import interface as iface
+from ..compat import Literal
+from ..definitions import OverridesT
+from ..utils import is_named_tuple, clone_schema_node
+from .. import flags
+from .. import schema
+from .. import sums
+from ..schema.meta import TypeExtension
+from .. import interface as iface
 
 
 T = TypeVar('T')
