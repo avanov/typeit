@@ -2,10 +2,16 @@
 CHANGELOG
 =========
 
+0.26.0
+===============
+
+* Support for ``bytes``.
+
+
 0.25.0
 ===============
 
-* Mapping types are now properly deserialize/serialize non-string hashable values
+* Mapping types properly deserialize/serialize non-string hashable values.
 
 
 0.24.0

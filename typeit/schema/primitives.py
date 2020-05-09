@@ -98,6 +98,39 @@ class Bool(NonStrictBool):
         return super().serialize(node, appstruct)
 
 
+class Bytes(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
+    def __init__(
+        self,
+        supported_conversions: t.Iterable[t.Type[t.Any]] = (int, bool, str, bytes)
+    ):
+        super().__init__()
+        self.supported_conversions = tuple(supported_conversions)
+
+    def serialize(self, node, appstruct):
+        """ Default colander str serializer serializes None as 'None',
+        whereas we want identical representation of the original data,
+        with strict primitive type semantics
+        """
+        if appstruct in (Null, 'None'):
+            return None
+
+        if not isinstance(appstruct, self.supported_conversions):
+            raise Invalid(
+                node,
+                f'Cannot convert a source value of type {type(appstruct)} to bytes: '
+                f'supported source types are {self.supported_conversions}.',
+                appstruct
+            )
+        if isinstance(appstruct, str):
+            rv =  bytes(appstruct, encoding='utf-8')
+        else:
+            rv = bytes(appstruct)
+        return rv
+
+    # it seems that for bytes serialisation checks are the same as for deserialisation
+    deserialize = serialize
+
+
 class NonStrictStr(col.Str, metaclass=SubscriptableSchemaTypeM):
 
     def serialize(self, node, appstruct):
@@ -168,6 +201,7 @@ PrimitiveSchemaTypeT = t.Union[
 # to colander SchemaNodes responsible for serialization/deserialization
 BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, PrimitiveSchemaTypeT] = {
     t.Any: AcceptEverything(),
+    bytes: Bytes(supported_conversions=(bytes,)),
     str: Str(allow_empty=True),
     int: Int(),
     float: Float(),
@@ -177,6 +211,7 @@ BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, PrimitiveSchemaTypeT] = {
 
 NON_STRICT_BUILTIN_TO_SCHEMA_TYPE: t.Mapping[t.Type, NonStrictPrimitiveSchemaTypeT] = {
     t.Any: AcceptEverything(),
+    bytes: Bytes(),
     str: NonStrictStr(allow_empty=True),
     int: NonStrictInt(),
     float: NonStrictFloat(),

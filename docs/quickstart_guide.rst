@@ -191,6 +191,7 @@ Supported types
 * ``bool``
 * ``int``
 * ``float``
+* ``bytes``
 * ``str``
 * ``dict``
 * ``set`` and ``frozenset``
