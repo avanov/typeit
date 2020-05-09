@@ -78,3 +78,9 @@ Run existing test suite with
 .. code::
 
    $ pytest
+
+
+Changelog
+--------
+
+See `CHANGELOG <https://github.com/avanov/typeit/blob/master/CHANGELOG.rst>`_.
