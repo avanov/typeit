@@ -81,6 +81,6 @@ Run existing test suite with
 
 
 Changelog
---------
+---------
 
 See `CHANGELOG <https://github.com/avanov/typeit/blob/master/CHANGELOG.rst>`_.
