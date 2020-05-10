@@ -4,13 +4,14 @@ from typing import Tuple, Callable, Dict, Any, Union, Type, Mapping, Sequence
 from pyrsistent import pmap
 # this is different from pyrsistent.typing.PMap unfortunately
 from pyrsistent import PMap as RealPMapType
+from pyrsistent.typing import PMap
 
 from .. import schema, flags
 from ..custom_types.json_string import JsonStringSchema, JsonString
 from ..definitions import OverridesT, NO_OVERRIDES
 from ..parser import T, decide_node_type, OverrideT
 from .combinator import Combinator
-
+from ..schema import nodes
 
 TypeTools = Tuple[ Callable[[Union[int, str, float, Sequence[Any], Mapping[str, Any]]], T]
                  , Callable[[T], Union[Sequence[Any], Mapping[str, Any]] ]]
@@ -19,7 +20,7 @@ TypeTools = Tuple[ Callable[[Union[int, str, float, Sequence[Any], Mapping[str, 
 class _TypeConstructor:
     def __init__(self, overrides: Union[Dict, OverridesT] = NO_OVERRIDES):
         self.overrides = pmap(overrides)
-        self.memo = pmap()
+        self.memo: PMap[Type[Any], Union[nodes.SchemaNode, nodes.TupleSchema, nodes.SequenceSchema]] = pmap()
 
     def __call__(self,
         typ: Type[T],

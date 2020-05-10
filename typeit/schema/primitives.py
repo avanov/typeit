@@ -150,7 +150,7 @@ class Str(NonStrictStr):
         cstruct = _strict_deserialize(node, str, cstruct)
         return super().deserialize(node, cstruct)
 
-    def serialize(self, node, appstruct):
+    def serialize(self, node, appstruct) -> str:
         """ Default colander str serializer serializes None as 'None',
         whereas we want identical representation of the original data,
         with strict primitive type semantics
