@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.27.0
+===============
+
+* Technical release, no public API changes.
+
+
 0.26.1
 ===============
 

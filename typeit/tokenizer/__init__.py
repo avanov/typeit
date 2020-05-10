@@ -53,7 +53,6 @@ def iter_tokens(typ: Type[Any], typer: _TypeConstructor = TypeConstructor) -> Ge
         typ_schema = typer.memo[typ]
 
     if isinstance(typ_schema, nodes.SchemaNode):
-        assert isinstance(typ_schema, TypeShape)
         shape: TypeShape = TypeShape.Structure()
     elif isinstance(typ_schema, (nodes.TupleSchema, nodes.SequenceSchema)):
         shape = TypeShape.Sequence()
