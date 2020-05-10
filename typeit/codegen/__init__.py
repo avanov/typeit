@@ -18,18 +18,17 @@ import inflection
 from pyrsistent import pmap, pvector
 from pyrsistent.typing import PMap
 
-from typeit.interface import INamedTuple, IType
-from .utils import normalize_name
-from .definitions import OverridesT, NO_OVERRIDES
-from .definitions import FieldDefinition
-from . import interface as iface
+from ..utils import normalize_name
+from ..definitions import OverridesT, NO_OVERRIDES
+from ..definitions import FieldDefinition
+from .. import interface as iface
 
 
-def _type_name_getter(typ: Type[IType]) -> str:
+def _type_name_getter(typ: Type[iface.IType]) -> str:
     return typ.__name__
 
 
-def _annotation_name_getter(typ: Type[INamedTuple]) -> str:
+def _annotation_name_getter(typ: Type[iface.INamedTuple]) -> str:
     return typ._name
 
 

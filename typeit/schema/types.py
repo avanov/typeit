@@ -90,7 +90,7 @@ class Structure(col.Mapping, metaclass=meta.SubscriptableSchemaTypeM):
             for k, v in r.items()
         })
 
-    def serialize(self, node, appstruct: iface.IType):
+    def serialize(self, node, appstruct: iface.IType) -> t.Mapping[str, t.Any]:
         if appstruct is Null:
             return super().serialize(node, appstruct)
         return super().serialize(

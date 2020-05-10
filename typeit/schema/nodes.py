@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from pyrsistent import pvector, pmap
 import colander as col
 
@@ -5,19 +7,21 @@ import colander as col
 Null = col.null
 
 
-class SequenceSchema(col.SequenceSchema):
-    pass
-
-
 class SchemaNode(col.SchemaNode):
     """ Colander's SchemaNode doesn't show node type in it's repr,
     we fix it with this subclass.
     """
+    children: Iterable
+
     def __repr__(self) -> str:
         return f'SchemaNode({self.typ})'
 
 
 class TupleSchema(col.TupleSchema):
+    pass
+
+
+class SequenceSchema(col.SequenceSchema):
     pass
 
 
