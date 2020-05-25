@@ -1,10 +1,12 @@
 import re
 import keyword
 import string
-from typing import Any, Type, TypeVar
+from typing import Any, Type, TypeVar, Callable
 
 from colander import TupleSchema, SequenceSchema
 
+from typeit import flags
+from typeit.definitions import OverridesT
 from typeit.schema.nodes import SchemaNode
 
 NORMALIZATION_PREFIX = 'overridden__'
@@ -47,3 +49,7 @@ def clone_schema_node(node: T) -> T:
     # the cloned node with new children doesn't affect the original node
     new_node.children = [x for x in node.children]
     return new_node
+
+
+def get_global_name_overrider(overrides: OverridesT) -> Callable[[str], str]:
+    return overrides.get(flags.GlobalNameOverride, flags.Identity)

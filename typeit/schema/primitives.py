@@ -64,7 +64,7 @@ class Int(NonStrictInt):
         cstruct = _strict_deserialize(node, int, cstruct)
         return super().deserialize(node, cstruct)
 
-    def serialize(self, node, appstruct):
+    def serialize(self, node, appstruct) -> int:
         """ Default colander integer serializer returns a string representation
         of a number, whereas we want identical representation of the original data.
         """
