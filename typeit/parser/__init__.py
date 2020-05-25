@@ -13,7 +13,7 @@ from pyrsistent import typing as pyt
 
 from ..compat import Literal
 from ..definitions import OverridesT
-from ..utils import is_named_tuple, clone_schema_node
+from ..utils import is_named_tuple, clone_schema_node, get_global_name_overrider
 from .. import flags
 from .. import schema
 from .. import sums
@@ -121,9 +121,8 @@ def _maybe_node_for_union(
     where T is either unknown Any or a concrete type.
     """
     if typ in supported_type or insp.get_origin(typ) in supported_origin:
-        NoneClass = None.__class__
         variants = inner_type_boundaries(typ)
-        if variants in ((NoneClass, Any), (Any, NoneClass)):
+        if variants in ((NoneType, Any), (Any, NoneType)):
             # Case for Optional[Any] and Union[None, Any] notations
             rv = schema.nodes.SchemaNode(
                 schema.primitives.AcceptEverything(),
@@ -131,11 +130,11 @@ def _maybe_node_for_union(
             )
             return rv, memo
 
-        allow_empty = NoneClass in variants
+        allow_empty = NoneType in variants
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
         variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
         for variant in variants:
-            if variant is NoneClass:
+            if variant is NoneType:
                 continue
             node, memo = decide_node_type(variant, overrides, memo)
             if allow_empty:
@@ -375,7 +374,7 @@ def _maybe_node_for_user_type(
     """ Generates a Colander schema for the given user-defined `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     """
-    global_name_overrider: Callable[[str], str] = overrides.get(flags.GlobalNameOverride, flags.Identity)
+    global_name_overrider = get_global_name_overrider(overrides)
     is_generic = insp.is_generic_type(typ)
 
     if is_generic:

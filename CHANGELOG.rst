@@ -2,10 +2,10 @@
 CHANGELOG
 =========
 
-0.27.0
+0.27.1
 ===============
 
-* Technical release, no public API changes.
+* Experimental tokenizer implementation.
 
 
 0.26.1

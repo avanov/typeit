@@ -4,7 +4,7 @@ from typing import NamedTuple, Sequence, Mapping, Generator, Type, Any
 
 from tests.paths import VCR_FIXTURES_PATH
 from typeit import TypeConstructor
-from typeit.tokenizer import iter_tokens, Token
+from typeit.tokenizer import iter_tokens, Token, BeginType, EndType, BeginAttribute, EndAttribute
 
 
 def test_tokenizer():
@@ -31,10 +31,10 @@ def test_tokenizer():
     translate_end_attribute = lambda x: ' '
 
     translation_map: Mapping[Token, str] = {
-        Token.BeginType: translate_begin_type,
-        Token.EndType:  translate_end_type,
-        Token.BeginAttribute: translate_begin_attribute,
-        Token.EndAttribute: translate_end_attribute,
+        BeginType: translate_begin_type,
+        EndType:  translate_end_type,
+        BeginAttribute: translate_begin_attribute,
+        EndAttribute: translate_end_attribute,
     }
 
     def translate_tokens_to_graphql(typ: Type[Any]) -> Generator[str, None, None]:
@@ -44,7 +44,7 @@ def test_tokenizer():
         for token in iter_tokens(typ, typer=TypeConstructor):
             for token_type, do_translate in translation_map.items():
                 if isinstance(token, token_type):
-                    if token_type is Token.BeginType:
+                    if token_type is BeginType:
                         if query_type_began:
                             yield translate_begin_type_inner(token)
                         else:
