@@ -49,6 +49,28 @@ def test_typed_mapping():
     assert x.pmap_[Attr.x] == 'value'
 
 
+def test_typed_mapping_values():
+    class Attr(Enum):
+        x = 'x'
+
+    class Val(NamedTuple):
+        val: str
+
+    class X(NamedTuple):
+        map: Mapping[Attr, Val]
+
+    mk_x, serialize_x = TypeConstructor ^ X
+
+    data = {
+        'map': {'x': {'val': 'value'}},
+    }
+
+    x = mk_x(data)
+
+    assert x.map[Attr.x] == Val(val='value')
+    assert serialize_x(x) == data
+
+
 def test_sequence():
     class X(NamedTuple):
         xs: collections.abc.Sequence
