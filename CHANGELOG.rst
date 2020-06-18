@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+0.27.2
+===============
+
+* Mapping nested values are serialized according to their custom type definition.
+
+
 0.27.1
 ===============
 

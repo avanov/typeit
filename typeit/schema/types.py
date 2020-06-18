@@ -33,7 +33,10 @@ class TypedMapping(col.Mapping):
 
     def serialize(self, node, appstruct):
         r = super().serialize(node, appstruct)
-        return r
+        if r in (Null, None):
+            return r
+
+        return {self.key_node.serialize(k): self.value_node.serialize(v) for k, v in r.items()}
 
 
 class Path(primitives.Str):
