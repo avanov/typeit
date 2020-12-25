@@ -1,7 +1,7 @@
 .. _badges:
 
-.. image:: https://travis-ci.org/avanov/typeit.svg?branch=develop
-    :target: https://travis-ci.org/avanov/typeit
+.. image:: https://github.com/avanov/typeit/workflows/CI/badge.svg?branch=develop
+    :target: https://github.com/avanov/typeit/actions?query=workflow%3A%22CI%22
 
 .. image:: https://coveralls.io/repos/github/avanov/typeit/badge.svg?branch=develop
     :target: https://coveralls.io/github/avanov/typeit?branch=develop
