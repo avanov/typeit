@@ -1,7 +1,7 @@
 .. _badges:
 
 .. image:: https://github.com/avanov/typeit/workflows/CI/badge.svg?branch=develop
-    :target: https://github.com/avanov/typeit/actions?query=workflow%3A%22CI%22
+    :target: https://github.com/avanov/typeit/actions?query=branch%3Adevelop
 
 .. image:: https://coveralls.io/repos/github/avanov/typeit/badge.svg?branch=develop
     :target: https://coveralls.io/github/avanov/typeit?branch=develop
@@ -23,7 +23,8 @@ Typeit
 ------
 
 **typeit** infers Python types from a sample JSON/YAML data, and provides you with the tools
-for serialising and parsing it. It works superb on Python 3.7 and above.
+for serialising and parsing it. It also provides you with smart constructors for arbitrarily nested data structures.
+The library works superb on Python 3.7 and above.
 
 Start using it by generating types for your JSON payloads:
 

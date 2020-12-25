@@ -219,6 +219,9 @@ def codegen_py(typeit_schema: TypeitSchema,
     return NEW_LINE.join(generated_definitions), overrides_source
 
 
+SEQUENCE_ORIGINS = {insp.get_origin(List[Any]), insp.get_origin(Sequence[Any])}
+
+
 def literal_for_type(typ: Type[iface.IType]) -> str:
     # typ is either one of these:
     #   * builtin type
@@ -227,7 +230,7 @@ def literal_for_type(typ: Type[iface.IType]) -> str:
     try:
         return BUILTIN_LITERALS_FOR_TYPES[typ](typ)
     except KeyError:
-        if typ.__class__ in {List.__class__, Sequence.__class__}:  # type: ignore
+        if insp.get_origin(typ) in SEQUENCE_ORIGINS:  # type: ignore
             sub_type = literal_for_type(typ.__args__[0])
             # TODO: Sequence/List/PVector flag-based
             return f'Sequence[{sub_type}]'

@@ -28,7 +28,6 @@ def test_typeit(data):
     cg.typeit(data)
 
 
-
 def test_parse_structure_with_sequences():
     data = """{"x": [[{"y": "z"}]]}"""
     github_pr_dict = json.loads(data)

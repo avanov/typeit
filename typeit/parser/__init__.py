@@ -120,7 +120,7 @@ def _maybe_node_for_union(
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
     """
-    if typ in supported_type or insp.get_origin(typ) in supported_origin:
+    if typ in supported_type or get_origin_39(typ) in supported_origin:
         variants = inner_type_boundaries(typ)
         if variants in ((NoneType, Any), (Any, NoneType)):
             # Case for Optional[Any] and Union[None, Any] notations
@@ -211,7 +211,7 @@ def _maybe_node_for_literal(
     types: https://mypy.readthedocs.io/en/latest/literal_types.html
     """
     if typ in supported_type \
-    or insp.get_origin(typ) in supported_origin:
+    or get_origin_39(typ) in supported_origin:
         inner = inner_type_boundaries(typ)
         for x in inner:
             if type(x) not in _supported_literal_types:
@@ -238,12 +238,16 @@ def _maybe_node_for_list(
     })
 ) -> Tuple[Optional[schema.nodes.SequenceSchema], MemoType]:
     # typ is List[T] where T is either unknown Any or a concrete type
-    if typ in supported_type or insp.get_origin(typ) in supported_origin:
+    if typ in supported_type or get_origin_39(typ) in supported_origin:
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
-            inner = Any
-        if pyt.PVector in (typ, insp.get_origin(typ)):
+            # Python 3.9 access to arguments
+            try:
+                inner = typ.__args__[0]
+            except (AttributeError, IndexError):
+                inner = Any
+        if pyt.PVector in (typ, get_origin_39(typ)):
             seq_type = schema.nodes.PVectorSchema
         else:
             seq_type = schema.nodes.SequenceSchema
@@ -251,6 +255,13 @@ def _maybe_node_for_list(
         return seq_type(node), memo
     return None, memo
 
+
+def get_origin_39(typ):
+    """python3.9 aware origin"""
+    origin = insp.get_origin(typ)
+    if origin is None:
+        origin = typ.__origin__ if hasattr(typ, '__origin__') else None
+    return origin
 
 def _maybe_node_for_set(
     typ: Type[iface.IType],
@@ -272,7 +283,7 @@ def _maybe_node_for_set(
         frozenset,
     })
 ) -> Optional[schema.nodes.SequenceSchema]:
-    origin = insp.get_origin(typ)
+    origin = get_origin_39(typ)
     if typ in supported_type or origin in supported_origin:
         try:
             inner = inner_type_boundaries(typ)[0]
@@ -301,7 +312,7 @@ def _maybe_node_for_tuple(
         tuple, Tuple,
     })
 ) -> Tuple[Optional[schema.nodes.TupleSchema], MemoType]:
-    if typ in supported_type or insp.get_origin(typ) in supported_origin:
+    if typ in supported_type or get_origin_39(typ) in supported_origin:
         inner_types = inner_type_boundaries(typ)
         if Ellipsis in inner_types:
             raise TypeError(
@@ -321,11 +332,30 @@ def _maybe_node_for_tuple(
     return None, memo
 
 
+def are_generic_bases_match(bases, template):
+    for base in bases:
+        if base in template:
+            return True
+    return False
+
+
+def is_pmap(typ):
+    """python3.9 compatible pmap checker"""
+    return pyt.PMap in (typ, get_origin_39(typ)) \
+        or (hasattr(typ, '__name__') and typ.__name__ == "PMap" and typ.__module__.startswith("pyrsistent."))
+
+def is_39_deprecated_dict(typ):
+    """python3.9 deprecated Dict in favor of dict, and now it lacks necessary metadata other than name and module if
+    there is no other constraints on key and value types, e.g. Dict[Key, Val] can be recognised, however just Dict cannot be.
+    """
+    return get_origin_39(typ) is None and hasattr(typ, '_name') and typ._name == 'Dict' and typ.__module__ == 'typing'
+
 def _maybe_node_for_dict(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
     supported_type=frozenset({
+        dict,
         collections.abc.Mapping,
         pyt.PMap,
     }),
@@ -342,17 +372,27 @@ def _maybe_node_for_dict(
     (for instance, python logging settings that have an infinite
     set of possible attributes).
     """
-    if typ in supported_type or insp.get_origin(typ) in supported_origin:
-        if pyt.PMap in (typ, insp.get_origin(typ)):
-            schema_node_type = schema.nodes.PMapSchema
-        else:
-            schema_node_type = schema.nodes.SchemaNode
+    # This is a hack for Python 3.9
+    if insp.is_generic_type(typ):
+        generic_bases = [get_origin_39(x) for x in insp.get_generic_bases(typ)]
+    else:
+        generic_bases = []
 
-        try:
-            key_type, value_type = insp.get_args(typ)
-        except ValueError:
-            # Mapping doesn't provide key/value types
-            key_type, value_type = Any, Any
+    typ = dict if is_39_deprecated_dict(typ) else typ
+
+    if typ in supported_type or get_origin_39(typ) in supported_origin or are_generic_bases_match(generic_bases, supported_origin):
+        schema_node_type = schema.nodes.PMapSchema if is_pmap(typ) else schema.nodes.SchemaNode
+
+        if generic_bases:
+            # python 3.9 args
+            key_type, value_type = typ.__args__
+        else:
+            try:
+                key_type, value_type = insp.get_args(typ)
+            except ValueError:
+                # Mapping doesn't provide key/value types
+                key_type, value_type = Any, Any
+
         key_node, memo = decide_node_type(key_type, overrides, memo)
         value_node, memo = decide_node_type(value_type, overrides, memo)
         mapping_type = schema.types.TypedMapping(key_node=key_node, value_node=value_node)
@@ -373,13 +413,14 @@ def _maybe_node_for_user_type(
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
     """ Generates a Colander schema for the given user-defined `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
+    This includes named tuples and dataclasses.
     """
     global_name_overrider = get_global_name_overrider(overrides)
     is_generic = insp.is_generic_type(typ)
 
     if is_generic:
         # get the base class that was turned into Generic[T, ...]
-        hints_source = insp.get_origin(typ)
+        hints_source = get_origin_39(typ)
         # now we need to map generic type variables to the bound class types,
         # e.g. we map Generic[T,U,V, ...] to actual types of MyClass[int, float, str, ...]
         generic_repr = insp.get_generic_bases(hints_source)
