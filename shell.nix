@@ -15,7 +15,7 @@ let
 
     python = pkgs."python${pyVersion}Full";
     pythonPkgs = pkgs."python${pyVersion}Packages";
-    devLibs = if isDevEnv then [ pythonPkgs.twine pythonPkgs.wheel ] else [];
+    devLibs = if isDevEnv then [ pythonPkgs.twine pythonPkgs.wheel ] else [ pythonPkgs.coveralls ];
 in
 
 # Make a new "derivation" that represents our shell
