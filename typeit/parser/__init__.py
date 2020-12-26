@@ -1,7 +1,7 @@
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping, Callable, NamedTuple, ForwardRef,
+    MutableSet, TypeVar, FrozenSet, Mapping, Callable, NamedTuple, ForwardRef, NewType,
 )
 
 import inspect
@@ -68,6 +68,22 @@ def _maybe_node_for_forward_ref(
         forward_refs[typ] = None
         return schema.nodes.SchemaNode(schema_type), memo, forward_refs
     return None, memo, forward_refs
+
+
+def _maybe_node_for_newtype(
+    typ: Union[NewType, Any],
+    overrides: OverridesT,
+    memo: MemoType,
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
+    """ newtypes do not change the underlying runtime data type that is used in
+    calls like isinstance(), therefore it's just enough for us to find
+    a schema node of the underlying type
+    """
+    rv = None
+    if insp.is_new_type(typ):
+        return decide_node_type(typ.__supertype__, overrides, memo, forward_refs)
+    return rv, memo, forward_refs
 
 
 def _maybe_node_for_primitive(
@@ -601,6 +617,7 @@ PARSING_ORDER = pvector([ _maybe_node_for_forward_ref
                         , _maybe_node_for_none
                         , _maybe_node_for_primitive
                         , _maybe_node_for_type_var
+                        , _maybe_node_for_newtype
                         , _maybe_node_for_union
                         , _maybe_node_for_list
                         , _maybe_node_for_tuple
