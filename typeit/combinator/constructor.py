@@ -30,16 +30,27 @@ class _TypeConstructor:
 
         :param overrides: a mapping of type_field => serialized_field_name.
         """
+        forward_refs = {}  # has to be mutable in the current implementation
         try:
-            schema_node, memo = decide_node_type(typ, overrides, self.memo)
+            main_type_node, memo, forward_refs = decide_node_type(typ, overrides, self.memo, forward_refs)
         except TypeError as e:
             raise TypeError(
                 f'Cannot create a type constructor for {typ}: {e}'
             ) from e
+        else:
+            # finalising forward references
+            while True:
+                unresolved = [r for r, v in forward_refs.items() if not v]
+                if not unresolved:
+                    break
+                for ref in unresolved:
+                    resolved_node, memo, forward_refs = decide_node_type(ref.__forward_value__, overrides, memo, forward_refs)
+                    forward_refs[ref] = resolved_node
+
         self.memo = memo
         return (
-            partial(schema.errors.errors_aware_constructor, schema_node.deserialize),
-            partial(schema.errors.errors_aware_constructor, schema_node.serialize)
+            partial(schema.errors.errors_aware_constructor, main_type_node.deserialize),
+            partial(schema.errors.errors_aware_constructor, main_type_node.serialize)
         )
 
     def __and__(self, override: OverrideT) -> '_TypeConstructor':

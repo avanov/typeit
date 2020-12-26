@@ -70,7 +70,7 @@ def iter_tokens(typ: Type[Any], typer: _TypeConstructor = TypeConstructor) -> Ge
     yield BeginType(
         shape=shape,
         python_name=_type_name_getter(typ),
-        docstring=typ.__doc__
+        docstring=typ.__doc__ or 'no docs provided yet'
     )
     if isinstance(shape, Structure):
         yield from iter_schema_node(typ_schema)

@@ -38,7 +38,7 @@ with (here / 'README.rst').open() as f:
 # ----------------------------
 
 setup(name='typeit',
-      version='3.9.1.0',
+      version='3.9.1.1',
       description='typeit brings typed data into your project',
       long_description=README,
       classifiers=[

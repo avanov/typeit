@@ -1,7 +1,7 @@
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping, Callable,
+    MutableSet, TypeVar, FrozenSet, Mapping, Callable, NamedTuple, ForwardRef, NewType,
 )
 
 import inspect
@@ -43,21 +43,55 @@ def inner_type_boundaries(typ: Type) -> Tuple:
     return insp.get_args(typ, evaluate=True)
 
 
+ForwardRefs = Dict[ForwardRef, Optional[schema.nodes.SchemaNode]]
+
+
 def _maybe_node_for_none(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT,
-    memo: MemoType
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+    memo: MemoType,
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     if typ is None:
-        return _maybe_node_for_literal(Literal[None], overrides, memo)
-    return None, memo
+        return _maybe_node_for_literal(Literal[None], overrides, memo, forward_refs)
+    return None, memo, forward_refs
+
+
+def _maybe_node_for_forward_ref(
+    typ: Union[ForwardRef, Any],
+    overrides: OverridesT,
+    memo: MemoType,
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
+    if isinstance(typ, ForwardRef):
+        schema_type = schema.types.ForwardReferenceType(forward_ref=typ, ref_registry=forward_refs)
+        forward_refs[typ] = None
+        return schema.nodes.SchemaNode(schema_type), memo, forward_refs
+    return None, memo, forward_refs
+
+
+def _maybe_node_for_newtype(
+    typ: Union[NewType, Any],
+    overrides: OverridesT,
+    memo: MemoType,
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
+    """ newtypes do not change the underlying runtime data type that is used in
+    calls like isinstance(), therefore it's just enough for us to find
+    a schema node of the underlying type
+    """
+    rv = None
+    if insp.is_new_type(typ):
+        return decide_node_type(typ.__supertype__, overrides, memo, forward_refs)
+    return rv, memo, forward_refs
 
 
 def _maybe_node_for_primitive(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT,
     memo: MemoType,
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ Check if type could be associated with one of the
     built-in type converters (in terms of Python built-ins).
     """
@@ -68,54 +102,59 @@ def _maybe_node_for_primitive(
     try:
         schema_type = registry[typ]
     except KeyError:
-        return None, memo
+        return None, memo, forward_refs
 
-    return schema.nodes.SchemaNode(schema_type), memo
+    return schema.nodes.SchemaNode(schema_type), memo, forward_refs
 
 
 def _maybe_node_for_type_var(
     typ: Type,
     overrides: OverridesT,
     memo: MemoType,
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ When we parse Sequence and List definitions without
     clarified item type, it is possible that this item is defined
     as TypeVar. Since it's an indicator of a generic collection,
     we can treat it as typing.Any.
     """
     if isinstance(typ, TypeVar):
-        return _maybe_node_for_primitive(Any, overrides, memo)
-    return None, memo
+        return _maybe_node_for_primitive(Any, overrides, memo, forward_refs)
+    return None, memo, forward_refs
 
 
 def _maybe_node_for_subclass_based(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+    forward_refs: ForwardRefs
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
+    rv = None
     for subclasses, schema_typ in schema.types.SUBCLASS_BASED_TO_SCHEMA_TYPE.items():
         try:
             is_target = issubclass(typ, subclasses)
         except TypeError:
             # TypeError: issubclass() arg 1 must be a class
             # ``typ`` is not a class, skip the rest
-            return None, memo
+            break
         else:
             if is_target:
                 rv = schema.nodes.SchemaNode(schema_typ(typ, allow_empty=True))
-                return rv, memo
-    return None, memo
+                break
+
+    return rv, memo, forward_refs
 
 
 def _maybe_node_for_union(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Union,
     })
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
@@ -128,7 +167,7 @@ def _maybe_node_for_union(
                 schema.primitives.AcceptEverything(),
                 missing=None
             )
-            return rv, memo
+            return rv, memo, forward_refs
 
         allow_empty = NoneType in variants
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
@@ -136,7 +175,7 @@ def _maybe_node_for_union(
         for variant in variants:
             if variant is NoneType:
                 continue
-            node, memo = decide_node_type(variant, overrides, memo)
+            node, memo, forward_refs = decide_node_type(variant, overrides, memo, forward_refs)
             if allow_empty:
                 # clonning because we mutate it next, and the node
                 # might be already from the cache
@@ -154,18 +193,19 @@ def _maybe_node_for_union(
         )
         if allow_empty:
             union_node.missing = None
-        return union_node, memo
+        return union_node, memo, forward_refs
 
-    return None, memo
+    return None, memo, forward_refs
 
 
 def _maybe_node_for_sum_type(
-    typ: Type[iface.IType],
+    typ: Union[Type[iface.IType], Type[sums.SumType]],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({}),
     supported_origin=frozenset({})
-) -> Optional[schema.nodes.SchemaNode]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     try:
         matched = issubclass(typ, sums.SumType)
     except TypeError:
@@ -173,14 +213,16 @@ def _maybe_node_for_sum_type(
         # ``typ`` is not a class (or a Generic[T] class), skip the rest
         matched = False
 
+    sum_node = None
     if matched:
         # represents a 2-tuple of (type_from_signature, associated_schema_node)
         variant_nodes: List[Tuple[Type, schema.nodes.SchemaNode]] = []
         for variant in typ:
-            node, memo = decide_node_type(
+            node, memo, forward_refs = decide_node_type(
                 variant.__variant_meta__.constructor,
                 overrides,
-                memo
+                memo,
+                forward_refs
             )
             node.typ.unknown = 'raise'
             variant_nodes.append((variant, node))
@@ -191,14 +233,14 @@ def _maybe_node_for_sum_type(
                 as_dict_key=overrides.get(flags.SumTypeDict),
             )
         )
-        return sum_node, memo
-    return None, memo
+    return sum_node, memo, forward_refs
 
 
 def _maybe_node_for_literal(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({}),
     supported_origin=frozenset({
         Literal,
@@ -206,10 +248,11 @@ def _maybe_node_for_literal(
     _supported_literal_types=frozenset({
         bool, int, str, bytes, NoneType,
     })
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ Handles cases where typ is a Literal, according to the allowed
     types: https://mypy.readthedocs.io/en/latest/literal_types.html
     """
+    rv = None
     if typ in supported_type \
     or get_origin_39(typ) in supported_origin:
         inner = inner_type_boundaries(typ)
@@ -217,14 +260,14 @@ def _maybe_node_for_literal(
             if type(x) not in _supported_literal_types:
                 raise TypeError(f'Literals cannot be defined with values of type {type(x)}')
         rv = schema.nodes.SchemaNode(schema.types.Literal(frozenset(inner)))
-        return rv, memo
-    return None, memo
+    return rv, memo, forward_refs
 
 
 def _maybe_node_for_list(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({
         collections.abc.Sequence,
         pyt.PVector,
@@ -236,7 +279,8 @@ def _maybe_node_for_list(
         list,
         pyt.PVector,
     })
-) -> Tuple[Optional[schema.nodes.SequenceSchema], MemoType]:
+) -> Tuple[Optional[schema.nodes.SequenceSchema], MemoType, ForwardRefs]:
+    rv = None
     # typ is List[T] where T is either unknown Any or a concrete type
     if typ in supported_type or get_origin_39(typ) in supported_origin:
         try:
@@ -251,22 +295,24 @@ def _maybe_node_for_list(
             seq_type = schema.nodes.PVectorSchema
         else:
             seq_type = schema.nodes.SequenceSchema
-        node, memo = decide_node_type(inner, overrides, memo)
-        return seq_type(node), memo
-    return None, memo
+        node, memo, forward_refs = decide_node_type(inner, overrides, memo, forward_refs)
+        rv = seq_type(node)
+    return rv, memo, forward_refs
 
 
-def get_origin_39(typ):
+def get_origin_39(typ: Type[Any]) -> Type[Any]:
     """python3.9 aware origin"""
     origin = insp.get_origin(typ)
     if origin is None:
         origin = typ.__origin__ if hasattr(typ, '__origin__') else None
     return origin
 
+
 def _maybe_node_for_set(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({
         set,
         frozenset,
@@ -282,14 +328,15 @@ def _maybe_node_for_set(
         set,
         frozenset,
     })
-) -> Optional[schema.nodes.SequenceSchema]:
+) -> Tuple[Optional[schema.nodes.SequenceSchema], MemoType, ForwardRefs]:
+    rv = None
     origin = get_origin_39(typ)
     if typ in supported_type or origin in supported_origin:
         try:
             inner = inner_type_boundaries(typ)[0]
         except IndexError:
             inner = Any
-        node, memo = decide_node_type(inner, overrides, memo)
+        node, memo, forward_refs = decide_node_type(inner, overrides, memo, forward_refs)
         rv = schema.nodes.SetSchema(
             node,
             frozen=(
@@ -297,21 +344,22 @@ def _maybe_node_for_set(
                 origin in (frozenset, FrozenSet)
             )
         )
-        return rv, memo
-    return None, memo
+    return rv, memo, forward_refs
 
 
 def _maybe_node_for_tuple(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({
         tuple,
     }),
     supported_origin=frozenset({
         tuple, Tuple,
     })
-) -> Tuple[Optional[schema.nodes.TupleSchema], MemoType]:
+) -> Tuple[Optional[schema.nodes.TupleSchema], MemoType, ForwardRefs]:
+    rv = None
     if typ in supported_type or get_origin_39(typ) in supported_origin:
         inner_types = inner_type_boundaries(typ)
         if Ellipsis in inner_types:
@@ -326,34 +374,38 @@ def _maybe_node_for_tuple(
         node = schema.nodes.TupleSchema()
         # Add tuple elements to the tuple node definition
         for t in inner_types:
-            n, memo = decide_node_type(t, overrides, memo)
+            n, memo, forward_refs = decide_node_type(t, overrides, memo, forward_refs)
             node.add(n)
-        return node, memo
-    return None, memo
+        rv = node
+
+    return rv, memo, forward_refs
 
 
-def are_generic_bases_match(bases, template):
+def are_generic_bases_match(bases, template) -> bool:
     for base in bases:
         if base in template:
             return True
     return False
 
 
-def is_pmap(typ):
+def is_pmap(typ: Type[Any]) -> bool:
     """python3.9 compatible pmap checker"""
     return pyt.PMap in (typ, get_origin_39(typ)) \
         or (hasattr(typ, '__name__') and typ.__name__ == "PMap" and typ.__module__.startswith("pyrsistent."))
 
-def is_39_deprecated_dict(typ):
+
+def is_39_deprecated_dict(typ: Type[Any]) -> bool:
     """python3.9 deprecated Dict in favor of dict, and now it lacks necessary metadata other than name and module if
     there is no other constraints on key and value types, e.g. Dict[Key, Val] can be recognised, however just Dict cannot be.
     """
     return get_origin_39(typ) is None and hasattr(typ, '_name') and typ._name == 'Dict' and typ.__module__ == 'typing'
 
+
 def _maybe_node_for_dict(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
+    forward_refs: ForwardRefs,
     supported_type=frozenset({
         dict,
         collections.abc.Mapping,
@@ -365,13 +417,14 @@ def _maybe_node_for_dict(
         collections.abc.Mapping,
         pyt.PMap,
     })
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ This is mainly for cases when a user has manually
     specified that a field should be a dictionary, rather than a
     strict structure, possibly due to dynamic nature of keys
     (for instance, python logging settings that have an infinite
     set of possible attributes).
     """
+    rv = None
     # This is a hack for Python 3.9
     if insp.is_generic_type(typ):
         generic_bases = [get_origin_39(x) for x in insp.get_generic_bases(typ)]
@@ -393,24 +446,31 @@ def _maybe_node_for_dict(
                 # Mapping doesn't provide key/value types
                 key_type, value_type = Any, Any
 
-        key_node, memo = decide_node_type(key_type, overrides, memo)
-        value_node, memo = decide_node_type(value_type, overrides, memo)
+        key_node,   memo, forward_refs = decide_node_type(key_type, overrides, memo, forward_refs)
+        value_node, memo, forward_refs = decide_node_type(value_type, overrides, memo, forward_refs)
         mapping_type = schema.types.TypedMapping(key_node=key_node, value_node=value_node)
-        return schema_node_type(mapping_type), memo
-    return None, memo
+        rv = schema_node_type(mapping_type)
+    return rv, memo, forward_refs
 
 
-_type_hints_getter: Callable[[Type], Sequence[Tuple[str, Type]]] = lambda x: list(filter(
-    lambda x: x[1] is not NoneType,
-    get_type_hints(x).items()
-))
+class AttrInfo(NamedTuple):
+    name: str
+    resolved_type: Type
+    raw_type: Union[Type, ForwardRef]
+
+
+def _type_hints_getter(typ: Type) -> Sequence[AttrInfo]:
+    raw = getattr(typ, '__annotations__', {})
+    existing_only = lambda x: x[1] is not NoneType
+    return [AttrInfo(name, t, raw.get(name, t)) for name, t in filter(existing_only, get_type_hints(typ).items())]
 
 
 def _maybe_node_for_user_type(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
-) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType]:
+    forward_refs: ForwardRefs,
+) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ Generates a Colander schema for the given user-defined `typ` that is capable
     of both constructing (deserializing) and serializing the `typ`.
     This includes named tuples and dataclasses.
@@ -429,7 +489,7 @@ def _maybe_node_for_user_type(
         type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
         # resolve type hints
         attribute_hints = [(field_name, type_var_to_type[type_var])
-                           for field_name, type_var in _type_hints_getter(hints_source)]
+                           for field_name, type_var in ((x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source))]
         # Generic types should not have default values
         defaults_source = lambda: ()
         # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,
@@ -450,7 +510,7 @@ def _maybe_node_for_user_type(
 
     elif is_named_tuple(typ):
         hints_source = typ
-        attribute_hints = _type_hints_getter(hints_source)
+        attribute_hints = [(x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source)]
         get_override_identifier = lambda x: getattr(typ, x)
         defaults_source = typ.__new__
 
@@ -471,7 +531,7 @@ def _maybe_node_for_user_type(
     else:
         # use init-based types
         hints_source = typ.__init__
-        attribute_hints = _type_hints_getter(hints_source)
+        attribute_hints = [(x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source)]
         get_override_identifier = lambda x: (typ, x)
         defaults_source = typ.__init__
 
@@ -520,7 +580,7 @@ def _maybe_node_for_user_type(
         else:
             serialized_field_name = globally_modified_field_name
 
-        node, memo = decide_node_type(field_type, overrides, memo)
+        node, memo, forward_refs = decide_node_type(field_type, overrides, memo, forward_refs)
         if node is None:
             raise TypeError(
                 f'Cannot recognise type "{field_type}" of the field '
@@ -532,28 +592,32 @@ def _maybe_node_for_user_type(
         node.name = serialized_field_name
         node.missing = defaults.get(field_name, node.missing)
         type_schema.add(node)
-    return type_schema, memo
+    return type_schema, memo, forward_refs
 
 
 def _maybe_node_for_overridden(
     typ: Type[Any],
     overrides: OverridesT,
     memo: MemoType,
-) -> Tuple[Any, MemoType]:
+    forward_refs: ForwardRefs,
+) -> Tuple[Any, MemoType, ForwardRefs]:
+    rv = None
     if typ in overrides:
         override: schema.TypeExtension = overrides[typ]
         schema_type_type, schema_node_children = override.schema
         type_schema = schema.nodes.SchemaNode(schema_type_type())
         for child in schema_node_children:
             type_schema.add(child)
-        return type_schema, memo
-    return None, memo
+        rv = type_schema
+    return rv, memo, forward_refs
 
 
-PARSING_ORDER = pvector([ _maybe_node_for_overridden
+PARSING_ORDER = pvector([ _maybe_node_for_forward_ref
+                        , _maybe_node_for_overridden
                         , _maybe_node_for_none
                         , _maybe_node_for_primitive
                         , _maybe_node_for_type_var
+                        , _maybe_node_for_newtype
                         , _maybe_node_for_union
                         , _maybe_node_for_list
                         , _maybe_node_for_tuple
@@ -575,8 +639,9 @@ CompoundSchema = Union[schema.nodes.SchemaNode, schema.nodes.TupleSchema, schema
 def decide_node_type(
     typ: Type[iface.IType],
     overrides: OverridesT,
-    memo: MemoType
-) -> Tuple[CompoundSchema, MemoType]:
+    memo: MemoType,
+    forward_refs: ForwardRefs,
+) -> Tuple[CompoundSchema, MemoType, ForwardRefs]:
     # typ is either of:
     #  Union[Type[BuiltinTypes],
     #        Type[Optional[Any]],
@@ -590,12 +655,12 @@ def decide_node_type(
     # is unable to narrow down `typ` to NamedTuple
     # at line _node_for_type(typ)
     if typ in memo:
-        return memo[typ], memo
+        return memo[typ], memo, forward_refs
     for attempt_find in PARSING_ORDER:
-        node, memo = attempt_find(typ, overrides, memo)
+        node, memo, forward_refs = attempt_find(typ, overrides, memo, forward_refs)
         if node:
             memo = memo.set(typ, node)
-            return node, memo
+            return node, memo, forward_refs
     raise TypeError(
         f'Unable to create a node for "{typ}".'
     )

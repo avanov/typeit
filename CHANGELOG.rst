@@ -2,6 +2,13 @@
 CHANGELOG
 =========
 
+3.9.1.1
+===============
+
+* Support for `typing.NewType`
+* Support for forward references and recursive types
+
+
 3.9.1.0
 ===============
 

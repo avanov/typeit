@@ -196,6 +196,7 @@ Supported types
 * ``dict``
 * ``set`` and ``frozenset``
 * ``typing.Any`` passes any value as is
+* ``typing.NewType``
 * ``typing.Union`` including nested structures
 * ``typing.Sequence``, ``typing.List`` including generic collections with ``typing.TypeVar``;
 * ``typing.Set`` and ``typing.FrozenSet``
@@ -210,6 +211,7 @@ Supported types
 * ``pathlib.Path`` derivatives
 * ``pyrsistent.typing.PVector``
 * ``pyrsistent.typing.PMap``
+* Forward references and recursive definitions
 * Regular classes with annotated ``__init__`` methods (`dataclasses.dataclass` are supported as a consequence of this).
 
 

@@ -389,7 +389,7 @@ def construct_type(name: str,
             overrides[c.field_name] = c.source_name
 
     typ = NamedTuple(inflection.camelize(name), type_fields)
-    type_overrides: PMap[property, str] = pmap({
+    type_overrides: OverridesT = pmap({
         getattr(typ, k): v for k, v in overrides.items()
     })
     return typ, type_overrides
