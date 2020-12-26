@@ -286,6 +286,9 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             x.typ for _, x in variant_nodes
         }
 
+    def __repr__(self) -> str:
+        return f'Optional({self.variant_schema_types})' if len(self.variant_schema_types) == 1 else f'Union({self.variant_schema_types})'
+
     def deserialize(self, node, cstruct):
         if cstruct in (Null, None):
             # explicitly passed None is not col.null
@@ -384,7 +387,7 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                     matching_types = (var_type,) + generic_type_bases(var_type)
                 else:
                     matching_types = (insp.get_origin(var_type), var_type)
-                if struct_type in matching_types or issubclass(struct_type, var_type):
+                if isinstance(var_type, t.ForwardRef) or struct_type in matching_types or issubclass(struct_type, var_type):
                     return var_schema.serialize(appstruct)
 
         raise Invalid(
@@ -392,6 +395,27 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             'None of the expected variants matches provided structure',
             appstruct
         )
+
+
+class ForwardReferenceType(col.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+    """ A special type that is promised to understand how to serialise and serialise a given
+    reference of a type that will be resolved at a later stage of parsing
+    """
+    def __init__(self, forward_ref: t.ForwardRef, ref_registry):
+        super().__init__()
+        self.ref = forward_ref
+        self.ref_registry = ref_registry
+
+    def __repr__(self) -> str:
+        return f'ForwardReferenceType(typ={self.ref})'
+
+    def deserialize(self, node, cstruct):
+        rv = self.ref_registry[self.ref].deserialize(cstruct)
+        return rv
+
+    def serialize(self, node, appstruct):
+        rv = self.ref_registry[self.ref].serialize(appstruct)
+        return rv
 
 
 SUBCLASS_BASED_TO_SCHEMA_TYPE: t.Mapping[
