@@ -263,7 +263,7 @@ def _maybe_node_for_literal(
     return rv, memo, forward_refs
 
 
-def _maybe_node_for_list(
+def _maybe_node_for_sequence(
     typ: Type[iface.IType],
     overrides: OverridesT,
     memo: MemoType,
@@ -489,7 +489,7 @@ def _maybe_node_for_user_type(
         type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
         # resolve type hints
         attribute_hints = [(field_name, type_var_to_type[type_var])
-                           for field_name, type_var in ((x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source))]
+                           for field_name, type_var in ((x, raw_type) for x, _resolved_type, raw_type in _type_hints_getter(hints_source))]
         # Generic types should not have default values
         defaults_source = lambda: ()
         # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,
@@ -619,7 +619,7 @@ PARSING_ORDER = pvector([ _maybe_node_for_forward_ref
                         , _maybe_node_for_type_var
                         , _maybe_node_for_newtype
                         , _maybe_node_for_union
-                        , _maybe_node_for_list
+                        , _maybe_node_for_sequence
                         , _maybe_node_for_tuple
                         , _maybe_node_for_dict
                         , _maybe_node_for_set

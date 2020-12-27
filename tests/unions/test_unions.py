@@ -1,9 +1,9 @@
-from typing import NamedTuple, Union, Any, Dict
+from typing import NamedTuple, Union, Any, Dict, Optional, Mapping
 
 import pytest
 
 import typeit
-from typeit import TypeConstructor, flags
+from typeit import TypeConstructor, flags, Error
 
 
 def test_type_with_unions():
@@ -92,3 +92,24 @@ def test_test_union_primitive_and_compound_types():
 
     x = mk_x_nonstrict(data)
     assert serialize_x_nonstrict(x) == data
+
+
+def test_union_mappings():
+    class X(NamedTuple):
+        x: Optional[Mapping[Any, Any]] = None
+
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+    serialize_x(mk_x({'x': None}))
+    serialize_x(mk_x({'x': {'y': None}}))
+
+
+def test_union_errors():
+    class X(NamedTuple):
+        x: Optional[int]
+
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+
+    with pytest.raises(Error):
+        mk_x({'x': '1'})
+    with pytest.raises(Error):
+        serialize_x(X(x="5"))

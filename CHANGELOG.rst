@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.2
+===============
+
+* Bugfix for unions serialisation of mappings
+
+
 3.9.1.1
 ===============
 
