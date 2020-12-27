@@ -295,6 +295,7 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             # therefore we must handle both
             return cstruct
 
+        collected_errors = []
         # Firstly, let's see if `cstruct` is one of the primitive types
         # supported by Python, and if this primitive type is specified
         # among union variants. If it is, then we need to try
@@ -308,8 +309,8 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         if prim_schema_type in self.variant_schema_types:
             try:
                 return prim_schema_type.deserialize(node, cstruct)
-            except Invalid:
-                pass
+            except Invalid as e:
+                collected_errors.append(e)
 
         # next, iterate over available variants and return the first
         # matched structure.
@@ -320,12 +321,13 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         for variant in remaining_variants:
             try:
                 return variant.deserialize(cstruct)
-            except Invalid:
+            except Invalid as e:
+                collected_errors.append(e)
                 continue
 
         raise Invalid(
             node,
-            'None of the expected variants matches provided data',
+            f'None of the expected variants matches provided data. Tried: {collected_errors}',
             cstruct
         )
 
@@ -348,7 +350,16 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             if s.typ is not prim_schema_type
         )
 
+        collected_errors = []
         for var_type, var_schema in remaining_variants:
+            # Mappings (which are not structs) have their own serializer
+            if isinstance(var_schema.typ, TypedMapping) and not isinstance(var_schema, Structure):
+                try:
+                    return var_schema.serialize(appstruct)
+                except Invalid as e:
+                    collected_errors.append(e)
+                    continue
+
             # Sequences and tuples require special treatment here:
             # since there is no direct reference to the target python data type
             # through variant.typ.typ that we could use to compare this variant
@@ -362,7 +373,8 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                     continue
                 try:
                     return var_schema.serialize(appstruct)
-                except Invalid:
+                except Invalid as e:
+                    collected_errors.append(e)
                     continue
 
             elif isinstance(var_schema, col.TupleSchema):
@@ -370,7 +382,8 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                     continue
                 try:
                     return var_schema.serialize(appstruct)
-                except Invalid:
+                except Invalid as e:
+                    collected_errors.append(e)
                     continue
 
             else:
@@ -387,12 +400,15 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                     matching_types = (var_type,) + generic_type_bases(var_type)
                 else:
                     matching_types = (insp.get_origin(var_type), var_type)
-                if isinstance(var_type, t.ForwardRef) or struct_type in matching_types or issubclass(struct_type, var_type):
-                    return var_schema.serialize(appstruct)
+                if struct_type in matching_types or isinstance(var_type, t.ForwardRef) or issubclass(struct_type, var_type):
+                    try:
+                        return var_schema.serialize(appstruct)
+                    except Invalid as e:
+                        collected_errors.append(e)
 
         raise Invalid(
             node,
-            'None of the expected variants matches provided structure',
+            f'None of the expected variants matches provided structure. Matched and tried: {collected_errors}',
             appstruct
         )
 

@@ -47,6 +47,8 @@ class AcceptEverything(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
 
 
 class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
+    def __repr__(self) -> str:
+        return 'Int(coercible)'
 
     def serialize(self, node, appstruct):
         """ Default colander integer serializer returns a string representation
@@ -59,6 +61,8 @@ class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
 
 
 class Int(NonStrictInt):
+    def __repr__(self) -> str:
+        return 'Int(strict)'
 
     def deserialize(self, node, cstruct):
         cstruct = _strict_deserialize(node, int, cstruct)
@@ -73,6 +77,8 @@ class Int(NonStrictInt):
 
 
 class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
+    def __repr__(self) -> str:
+        return 'Bool(coercible)'
 
     def serialize(self, node, appstruct):
         """ Default colander bool serializer returns a string representation
@@ -85,6 +91,9 @@ class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
 
 
 class Bool(NonStrictBool):
+
+    def __repr__(self) -> str:
+        return 'Bool(strict)'
 
     def deserialize(self, node, cstruct):
         cstruct = _strict_deserialize(node, bool, cstruct)
@@ -161,6 +170,9 @@ class Str(NonStrictStr):
 
 class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
 
+    def __repr__(self) -> str:
+        return 'Float(coercible)'
+
     def serialize(self, node, appstruct):
         r = super().serialize(node, appstruct)
         if r in (Null, 'None'):
@@ -169,6 +181,8 @@ class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
 
 
 class Float(NonStrictFloat):
+    def __repr__(self) -> str:
+        return 'Float(strict)'
 
     def deserialize(self, node, cstruct):
         cstruct = _strict_deserialize(node, float, cstruct)

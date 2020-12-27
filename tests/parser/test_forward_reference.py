@@ -1,4 +1,7 @@
 from typing import NamedTuple, Optional, Sequence, Any
+
+from pyrsistent.typing import PVector
+
 import typeit
 
 
@@ -75,3 +78,4 @@ def test_recursive_ref():
     assert tree.left.right is None
     assert tree.value == 0
     assert tree.left.value == 1
+

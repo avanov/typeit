@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple, Callable, Dict, Any, Union, Type, Mapping, Sequence
+from typing import Tuple, Callable, Dict, Any, Union, Type, Mapping, Sequence, ForwardRef
 
 from pyrsistent import pmap
 # this is different from pyrsistent.typing.PMap unfortunately

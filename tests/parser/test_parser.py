@@ -387,7 +387,7 @@ def test_parse_builtins(typ, data):
 
 def test_schema_node():
     x = schema.nodes.SchemaNode(schema.primitives.Int())
-    assert x.__repr__().startswith('SchemaNode(<typeit.schema.primitives.Int ')
+    assert x.__repr__().startswith('SchemaNode(Int(strict)')
 
 
 def test_type_with_dict():

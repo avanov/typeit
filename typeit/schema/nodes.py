@@ -39,7 +39,7 @@ class SetSchema(SequenceSchema):
         return set(r)
 
 
-class PVectorSchema(col.SequenceSchema):
+class PVectorSchema(SequenceSchema):
     def deserialize(self, *args, **kwargs):
         r = super().deserialize(*args, **kwargs)
         if r in (Null, None):
