@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.3
+===============
+
+* Slightly better error reports of Union parsing
+
+
 3.9.1.2
 ===============
 

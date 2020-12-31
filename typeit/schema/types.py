@@ -82,7 +82,7 @@ class Structure(col.Mapping, metaclass=meta.SubscriptableSchemaTypeM):
         })
 
     def __repr__(self) -> str:
-        return f'Structure(typ={self.typ})'
+        return f'Structure({self.typ})'
 
     def deserialize(self, node, cstruct):
         r = super().deserialize(node, cstruct)
@@ -327,7 +327,10 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
 
         raise Invalid(
             node,
-            f'None of the expected variants matches provided data. Tried: {collected_errors}',
+            f'None of the expected variants matches provided data.\n'
+            f'Tried variants: {collected_errors}\n'
+            f'Input: {cstruct}',
+
             cstruct
         )
 
