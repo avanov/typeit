@@ -29,6 +29,23 @@ class TypedMapping(col.Mapping):
         r = super().deserialize(node, cstruct)
         if r in (Null, None):
             return r
+        rv = {}
+        for k, v in r.items():
+            try:
+                key = self.key_node.deserialize(k)
+            except Invalid as e:
+                error = Invalid(node, "{<k>: <v>} error parsing <k>", cstruct)
+                error.add(e)
+                raise error
+            else:
+                try:
+                    val = self.value_node.deserialize(v)
+                except Invalid as e:
+                    error = Invalid(node, f"{{{k}: <v>}} error parsing <v>", v)
+                    error.add(e)
+                    raise error
+                else:
+                    rv[key] = val
         return {self.key_node.deserialize(k): self.value_node.deserialize(v) for k, v in r.items()}
 
     def serialize(self, node, appstruct):
@@ -224,7 +241,7 @@ class Enum(primitives.Str):
         try:
             return self.typ(r)
         except ValueError:
-            raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
+            raise Invalid(node, f'Invalid variant of {self.typ.__name__}: {cstruct}', cstruct)
 
 
 generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = lambda x: (insp.get_origin(x),)
@@ -295,7 +312,7 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
             # therefore we must handle both
             return cstruct
 
-        collected_errors = []
+        collected_errors: t.List[Invalid] = []
         # Firstly, let's see if `cstruct` is one of the primitive types
         # supported by Python, and if this primitive type is specified
         # among union variants. If it is, then we need to try
@@ -325,14 +342,15 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
                 collected_errors.append(e)
                 continue
 
-        raise Invalid(
+        errors = "\n\t * ".join(str(x.node) for x in collected_errors)
+        error = Invalid(
             node,
-            f'None of the expected variants matches provided data.\n'
-            f'Tried variants: {collected_errors}\n'
-            f'Input: {cstruct}',
-
+            f'No suitable variant among tried:\n\t * {errors}\n',
             cstruct
         )
+        for e in collected_errors:
+            error.add(e)
+        raise error
 
     def serialize(self, node, appstruct: t.Any):
         if appstruct in (Null, None):

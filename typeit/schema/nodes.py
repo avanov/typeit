@@ -14,7 +14,7 @@ class SchemaNode(col.SchemaNode):
     children: Iterable
 
     def __repr__(self) -> str:
-        return f'SchemaNode({self.typ})'
+        return f'{self.typ}'
 
 
 class TupleSchema(col.TupleSchema):
