@@ -14,6 +14,10 @@ class InvalidData(NamedTuple):
     reason: str
     sample: Optional[Any]
 
+    def __repr__(self) -> str:
+        pth = self.path.replace('.', ' -> ')
+        return f'{pth}: {self.reason}: {self.sample if self.sample else ""}'
+
 
 class Error(ValueError):
     def __init__(self, validation_error, sample_data):
@@ -24,8 +28,13 @@ class Error(ValueError):
     def __iter__(self) -> Iterator[InvalidData]:
         return iter_invalid(self.validation_error, self.sample_data)
 
-    def __str__(self):
-        return str(self.validation_error)
+    def __repr__(self) -> str:
+        rv = []
+        for i, x in enumerate(self, start=1):
+            rv.append(f'\n({i}) {x}')
+        return ''.join(rv)
+
+    __str__ = __repr__
 
 
 def iter_invalid(error: Invalid,
