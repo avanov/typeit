@@ -9,7 +9,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        python-version: [ 37, 38 ]
+        python-version: [ 38 ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4

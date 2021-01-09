@@ -18,7 +18,7 @@ from . import nodes
 Null = nodes.Null
 
 
-class TypedMapping(col.Mapping):
+class TypedMapping(meta.Mapping):
     def __init__(self, *, key_node: nodes.SchemaNode, value_node: nodes.SchemaNode):
         # https://docs.pylonsproject.org/projects/colander/en/latest/api.html#colander.Mapping
         super().__init__(unknown='preserve')
@@ -77,7 +77,7 @@ class Path(primitives.Str):
             raise Invalid(node, f'Invalid variant of {self.typ.__name__}', cstruct)
 
 
-class Structure(col.Mapping, metaclass=meta.SubscriptableSchemaTypeM):
+class Structure(meta.Mapping):
     """ SchemaNode for NamedTuples and derived types.
     """
     def __init__(self,
@@ -122,11 +122,10 @@ class Structure(col.Mapping, metaclass=meta.SubscriptableSchemaTypeM):
         )
 
 
-class Tuple(col.Tuple, metaclass=meta.SubscriptableSchemaTypeM):
-    pass
+Tuple = meta.Tuple
 
 
-class Sum(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Sum(meta.SchemaType):
     def __init__(
         self,
         typ: sums.SumType,
@@ -247,7 +246,7 @@ class Enum(primitives.Str):
 generic_type_bases: t.Callable[[t.Type], t.Tuple[t.Type, ...]] = lambda x: (insp.get_origin(x),)
 
 
-class Literal(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Literal(meta.SchemaType):
     def __init__(self, variants: t.FrozenSet):
         super().__init__()
         self.variants = variants
@@ -277,7 +276,7 @@ class Literal(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         )
 
 
-class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class Union(meta.SchemaType):
     """ This node handles typing.Union[T1, T2, ...] cases.
     Please note that typing.Optional[T] is normalized by parser as typing.Union[None, T],
     and this Union schema type will not have None among its variants. Instead,
@@ -434,7 +433,7 @@ class Union(meta.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
         )
 
 
-class ForwardReferenceType(col.SchemaType, metaclass=meta.SubscriptableSchemaTypeM):
+class ForwardReferenceType(meta.SchemaType):
     """ A special type that is promised to understand how to serialise and serialise a given
     reference of a type that will be resolved at a later stage of parsing
     """
