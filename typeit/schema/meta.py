@@ -67,3 +67,31 @@ class Tuple(col.Tuple, metaclass=SubscriptableSchemaTypeM):
 
 class Mapping(col.Mapping, metaclass=SubscriptableSchemaTypeM):
     pass
+
+
+class SchemaType(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Int(col.Int, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Bool(col.Bool, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Str(col.Str, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Float(col.Float, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Tuple(col.Tuple, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Mapping(col.Mapping, metaclass=SubscriptableSchemaTypeM):
+    pass

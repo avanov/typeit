@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.4
+===============
+
+* Minor internal interface changes, no b/w compatibility issues.
+
+
 3.9.1.3
 ===============
 
