@@ -1,4 +1,4 @@
-from typing import Type, NamedTuple, Tuple, Any
+from typing import Type, NamedTuple, Tuple as PyTuple, Any
 
 import colander as col
 from pyrsistent import pvector
@@ -8,12 +8,9 @@ from . import nodes
 from ..combinator.combinator import Combinator
 
 
-SchemaType = col.SchemaType
-
-
 class TypeExtension(NamedTuple):
     typ: Type
-    schema: Tuple[Type[SchemaType], PVector[Any]]
+    schema: PyTuple[Type['SchemaType'], PVector[Any]]
 
     def __and__(self, other) -> Combinator:
         return Combinator() & self & other
@@ -31,7 +28,7 @@ class SubscriptableSchemaTypeM(type):
     The *M suffix in the name stands for "Meta" to indicate that
     this class should be used only as a metaclass.
     """
-    def __getitem__(cls: Type[SchemaType], item: Type) -> TypeExtension:
+    def __getitem__(cls: Type['SchemaType'], item: Type) -> TypeExtension:
         # ``cls`` is a schema type here
         return TypeExtension(
             typ=item,
@@ -42,3 +39,31 @@ class SubscriptableSchemaTypeM(type):
         return f'{self.__name__}'
 
     __str__ = __repr__
+
+
+class SchemaType(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Int(col.Int, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Bool(col.Bool, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Str(col.Str, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Float(col.Float, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Tuple(col.Tuple, metaclass=SubscriptableSchemaTypeM):
+    pass
+
+
+class Mapping(col.Mapping, metaclass=SubscriptableSchemaTypeM):
+    pass

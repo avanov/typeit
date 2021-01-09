@@ -1,7 +1,7 @@
 import typing as t
 
 import colander as col
-from .meta import SubscriptableSchemaTypeM
+from . import meta
 from .errors import Invalid
 
 
@@ -35,7 +35,7 @@ def _strict_serialize(node, allowed_type: t.Type, appstruct):
     return appstruct
 
 
-class AcceptEverything(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
+class AcceptEverything(meta.SchemaType):
     """ A schema type to correspond to typing.Any, i.e. allows
     any data to pass through the type constructor.
     """
@@ -46,7 +46,7 @@ class AcceptEverything(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
         return cstruct
 
 
-class NonStrictInt(col.Int, metaclass=SubscriptableSchemaTypeM):
+class NonStrictInt(meta.Int):
     def __repr__(self) -> str:
         return 'Int(coercible)'
 
@@ -76,7 +76,7 @@ class Int(NonStrictInt):
         return super().serialize(node, appstruct)
 
 
-class NonStrictBool(col.Bool, metaclass=SubscriptableSchemaTypeM):
+class NonStrictBool(meta.Bool):
     def __repr__(self) -> str:
         return 'Bool(coercible)'
 
@@ -107,7 +107,7 @@ class Bool(NonStrictBool):
         return super().serialize(node, appstruct)
 
 
-class Bytes(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
+class Bytes(meta.SchemaType):
     def __init__(
         self,
         supported_conversions: t.Iterable[t.Type[t.Any]] = (int, bool, str, bytes)
@@ -131,7 +131,7 @@ class Bytes(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
                 appstruct
             )
         if isinstance(appstruct, str):
-            rv =  bytes(appstruct, encoding='utf-8')
+            rv = bytes(appstruct, encoding='utf-8')
         else:
             rv = bytes(appstruct)
         return rv
@@ -140,7 +140,7 @@ class Bytes(col.SchemaType, metaclass=SubscriptableSchemaTypeM):
     deserialize = serialize
 
 
-class NonStrictStr(col.Str, metaclass=SubscriptableSchemaTypeM):
+class NonStrictStr(meta.Str):
 
     def serialize(self, node, appstruct):
         """ Default colander str serializer serializes None as 'None',
@@ -168,7 +168,7 @@ class Str(NonStrictStr):
         return super().serialize(node, appstruct)
 
 
-class NonStrictFloat(col.Float, metaclass=SubscriptableSchemaTypeM):
+class NonStrictFloat(meta.Float):
 
     def __repr__(self) -> str:
         return 'Float(coercible)'
