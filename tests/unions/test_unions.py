@@ -120,18 +120,18 @@ def test_union_errors():
         serialize_x(X(x="5"))
 
 
-def test_nested_unions_openapi():
-    overrides = {
-        OperationParameter.in_: 'in',
-        Reference.ref: '$ref',
-        PathItem.ref: '$ref',
-    }
-    _camelcase_attribute_names = flags.GlobalNameOverride(lambda x: camelize(x, uppercase_first_letter=False))
-
-    parse_spec, serialize_spec = TypeConstructor & overrides & _camelcase_attribute_names ^ OpenAPI
-
-    with PETSTORE_SPEC.open('r') as f:
-        spec_dict = json.load(f)
-
-    spec = parse_spec(spec_dict)
-    assert spec
+# def test_nested_unions_openapi():
+#     overrides = {
+#         OperationParameter.in_: 'in',
+#         Reference.ref: '$ref',
+#         PathItem.ref: '$ref',
+#     }
+#     _camelcase_attribute_names = flags.GlobalNameOverride(lambda x: camelize(x, uppercase_first_letter=False))
+#
+#     parse_spec, serialize_spec = TypeConstructor & overrides & _camelcase_attribute_names ^ OpenAPI
+#
+#     with PETSTORE_SPEC.open('r') as f:
+#         spec_dict = json.load(f)
+#
+#     spec = parse_spec(spec_dict)
+#     assert spec
