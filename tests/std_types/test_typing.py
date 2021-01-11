@@ -1,6 +1,6 @@
 import collections
 from enum import Enum
-from typing import Mapping, Any, Union, Optional, Sequence, Dict
+from typing import Mapping, Any, Union, Optional, Sequence, Dict, Type
 from typing import NamedTuple
 
 from pyrsistent.typing import PMap
@@ -161,3 +161,16 @@ def test_literals_included():
             'y': None,
             'z': [1, 2],
         })
+
+
+def test_special_case_none_type():
+    """ https://github.com/python/mypy/pull/3754
+
+    The goal for supporting this notation is to allow MyPy to successfully process
+    aliases like `Response = Type[None]` that would work for payloads that return nothing.
+    MyPy doesn't support aliases of `Response = None` as it complains that:
+    "Variable "Response" is not valid as a type"
+    """
+    mk_x, serialize_x = TypeConstructor ^ Type[None]
+    assert mk_x(None) is None
+    assert serialize_x(None) is None

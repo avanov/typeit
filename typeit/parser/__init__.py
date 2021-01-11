@@ -50,9 +50,13 @@ def _maybe_node_for_none(
     typ: Union[Type[iface.IType], Any],
     overrides: OverridesT,
     memo: MemoType,
-    forward_refs: ForwardRefs
+    forward_refs: ForwardRefs,
+    supported_type: FrozenSet = frozenset([
+        None,
+        Type[None]  # special case to support MyPy aliases of None https://github.com/python/mypy/pull/3754
+    ])
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
-    if typ is None:
+    if typ in supported_type:
         return _maybe_node_for_literal(Literal[None], overrides, memo, forward_refs)
     return None, memo, forward_refs
 
