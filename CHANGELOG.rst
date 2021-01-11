@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.5
+===============
+
+* Support for ``Type[None]``: https://github.com/python/mypy/pull/3754
+
+
 3.9.1.4
 ===============
 
