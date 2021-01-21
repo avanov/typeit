@@ -44,8 +44,11 @@ class _TypeConstructor:
                 if not unresolved:
                     break
                 for ref in unresolved:
-                    resolved_node, memo, forward_refs = decide_node_type(ref.__forward_value__, overrides, memo, forward_refs)
-                    forward_refs[ref] = resolved_node
+                    if ref.__forward_value__ is None:
+                        forward_refs[ref] = main_type_node
+                    else:
+                        resolved_node, memo, forward_refs = decide_node_type(ref.__forward_value__, overrides, memo, forward_refs)
+                        forward_refs[ref] = resolved_node
 
         self.memo = memo
         return (
