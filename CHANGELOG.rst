@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.7
+=======
+
+* Support for self-recursive data (like a typical union of JSONValue)
+
+
 3.9.1.5 - 3.9.1.6 (quickfix)
 ============================
 
