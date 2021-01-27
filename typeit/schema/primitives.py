@@ -95,11 +95,11 @@ class Bool(NonStrictBool):
     def __repr__(self) -> str:
         return 'Bool(strict)'
 
-    def deserialize(self, node, cstruct):
+    def deserialize(self, node, cstruct) -> bool:
         cstruct = _strict_deserialize(node, bool, cstruct)
         return super().deserialize(node, cstruct)
 
-    def serialize(self, node, appstruct):
+    def serialize(self, node, appstruct) -> bool:
         """ Default colander bool serializer returns a string representation
         of a boolean flag, whereas we want identical representation of the original data.
         """
