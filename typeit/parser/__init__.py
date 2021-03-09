@@ -509,7 +509,7 @@ def _maybe_node_for_user_type(
         # apply a local optimisation that discards `deserialize_overrides`
         # if there is no difference with the original field_names;
         # it is done to occupy less memory with unnecessary mappings
-        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}):
+        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}) and global_name_overrider is flags.Identity:
             deserialize_overrides = pmap({})
 
     elif is_named_tuple(typ):
@@ -530,7 +530,7 @@ def _maybe_node_for_user_type(
         # apply a local optimisation that discards `deserialize_overrides`
         # if there is no difference with the original field_names;
         # it is done to occupy less memory with unnecessary mappings
-        if deserialize_overrides == pmap({x: x for x in typ._fields}):
+        if deserialize_overrides == pmap({x: x for x in typ._fields}) and global_name_overrider is flags.Identity:
             deserialize_overrides = pmap({})
     else:
         # use init-based types
@@ -550,7 +550,7 @@ def _maybe_node_for_user_type(
         # apply a local optimisation that discards `deserialize_overrides`
         # if there is no difference with the original field_names;
         # it is done to occupy less memory with unnecessary mappings
-        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}):
+        if deserialize_overrides == pmap({x: x for x, _ in attribute_hints}) and global_name_overrider is flags.Identity:
             deserialize_overrides = pmap({})
 
     defaults = {
