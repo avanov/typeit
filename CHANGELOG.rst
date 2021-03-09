@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.9.1.9
+=======
+
+* Bug fixes of global overrides rewriting specific overrides
+
+
 3.9.1.7
 =======
 
