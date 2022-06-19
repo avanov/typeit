@@ -28,4 +28,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          nix-shell --argstr pyVersion ${{ matrix.python-version }} --arg isDevEnv false --run "coveralls"
+          nix-shell --argstr pyVersion ${{ matrix.python-version }} --arg isDevEnv false --run "coveralls --service=github"
