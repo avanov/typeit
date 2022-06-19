@@ -1,7 +1,8 @@
+from types import UnionType
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
     Dict, Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping, Callable, NamedTuple, ForwardRef, NewType,
+    MutableSet, TypeVar, FrozenSet, Mapping, NamedTuple, ForwardRef, NewType,
 )
 
 import inspect
@@ -27,16 +28,13 @@ MemoType = TypeVar('MemoType')
 NoneType = type(None)
 
 
-OverrideT = Union[
-    # flag override
-    flags._Flag,
-    # new type extension
-    TypeExtension,
-    Union[
-        Mapping[property, str],         # overrides syntax for NamedTuples
-        Mapping[Tuple[Type, str], str]  # overrides syntax for dataclasses and init-based hints
-    ],
-]
+OverrideT = (   flags._Flag     # flag override
+            |   TypeExtension   # new type extension
+            |   Union[
+                    Mapping[property, str],         # overrides syntax for NamedTuples
+                    Mapping[Tuple[Type, str], str]  # overrides syntax for dataclasses and init-based hints
+                ]
+            )
 
 
 def inner_type_boundaries(typ: Type) -> Tuple:
@@ -149,6 +147,10 @@ def _maybe_node_for_subclass_based(
     return rv, memo, forward_refs
 
 
+# checks for "T1 | T2" syntax instances resulting in UnionType
+is_py_310_union = lambda instance: type(instance) is UnionType
+
+
 def _maybe_node_for_union(
     typ: Type[iface.IType],
     overrides: OverridesT,
@@ -156,15 +158,15 @@ def _maybe_node_for_union(
     forward_refs: ForwardRefs,
     supported_type=frozenset({}),
     supported_origin=frozenset({
-        Union,
+        Union, UnionType
     })
 ) -> Tuple[Optional[schema.nodes.SchemaNode], MemoType, ForwardRefs]:
     """ Handles cases where typ is a Union, including the special
     case of Optional[Any], which is in essence Union[None, T]
     where T is either unknown Any or a concrete type.
     """
-    if typ in supported_type or get_origin_39(typ) in supported_origin:
-        variants = inner_type_boundaries(typ)
+    if typ in supported_type or get_origin_39(typ) in supported_origin or is_py_310_union(typ):
+        variants = inner_type_boundaries(typ) or typ.__args__  # 'or x' assumes Python310 union
         if variants in ((NoneType, Any), (Any, NoneType)):
             # Case for Optional[Any] and Union[None, Any] notations
             rv = schema.nodes.SchemaNode(

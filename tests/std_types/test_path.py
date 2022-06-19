@@ -29,7 +29,7 @@ def test_path():
 
 def test_path_union():
     class X(NamedTuple):
-        x: Union[p.Path, Dict]
+        x: p.Path | Dict
 
     mk_x, serialize_x = TypeConstructor(X)
     data = {

@@ -78,7 +78,7 @@ Run existing test suite with
 
 .. code::
 
-   $ pytest
+   $ make test
 
 
 Changelog

@@ -68,7 +68,7 @@ def test_primitives_strictness():
 
 def test_serialize_list():
     class X(NamedTuple):
-        x: Union[None, Sequence[str]]
+        x: None | Sequence[str]
 
     mk_x, serialize_x = typeit.TypeConstructor ^ X
     data = {
@@ -89,7 +89,7 @@ def test_serialize_union_lists():
     when it comes to serialization / deserialization
     """
     class X(NamedTuple):
-        x: Union[Sequence[str], Sequence[float], Sequence[int]]
+        x: Sequence[str] | Sequence[float] | Sequence[int]
 
     mk_x, serialize_x = typeit.TypeConstructor ^ X
     data = {
@@ -288,10 +288,10 @@ def test_enum_unions_serialization():
         Y = 'y'
         Z = 'z'
 
+    EType = E0 | E1
 
     class MyType(NamedTuple):
-        val: Union[E0, E1]
-
+        val: EType
 
     __, serializer = typeit.TypeConstructor(MyType)
 
