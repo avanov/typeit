@@ -1,31 +1,28 @@
 {
-    pkgs ? import (builtins.fetchTarball {
-             # Descriptive name to make the store path easier to identify
-             name = "typeit-python38";
-             # Commit hash for nixos-unstable as of 2019-10-27
-             url = https://github.com/NixOS/nixpkgs/archive/b67ba0bfcc714453cdeb8d713e35751eb8b4c8f4.tar.gz;
-             # Hash obtained using `nix-prefetch-url --unpack <url>`
-             sha256 = "0bjcdml9vbrx0r0kz9ic48lpnj4ah1cjhqsw7p0ydmz7dvrq702y";
-           }) {}
-,   pyVersion ? "39"
+    pkgs ? (import (builtins.fetchGit {
+        url = "https://github.com/avanov/nix-common.git";
+        ref = "master";
+        rev = "be2dc05bf6beac92fc12da9a2adae6994c9f2ee6";
+    }) {}).pkgs
+,   pyVersion ? "310"
 ,   isDevEnv  ? true
 }:
 
 let
 
-    python = pkgs."python${pyVersion}Full";
+    python = pkgs."python${pyVersion}";
     pythonPkgs = pkgs."python${pyVersion}Packages";
     devLibs = if isDevEnv then [ pythonPkgs.twine pythonPkgs.wheel ] else [ pythonPkgs.coveralls ];
 in
 
 # Make a new "derivation" that represents our shell
-pkgs.stdenv.mkDerivation {
+pkgs.mkShellNoCC {
     name = "typeit";
 
     # The packages in the `buildInputs` list will be added to the PATH in our shell
     # Python-specific guide:
     # https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/python.section.md
-    buildInputs = with pkgs; [
+    nativeBuildInputs = with pkgs; [
         # see https://nixos.org/nixos/packages.html
         # Python distribution
         python
@@ -53,6 +50,9 @@ pkgs.stdenv.mkDerivation {
         # Setup virtualenv
         if [ ! -d $VENV_DIR ]; then
             virtualenv $VENV_DIR
+            pip install -r requirements/minimal.txt
+            pip install -r requirements/test.txt
+            pip install -r requirements/extras/third_party.txt
         fi
     '';
 }

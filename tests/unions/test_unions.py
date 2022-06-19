@@ -86,7 +86,7 @@ def test_union_primitive_match():
 
 def test_test_union_primitive_and_compound_types():
     class X(NamedTuple):
-        x: Union[str, Dict[str, Any]]
+        x: str | dict[str, Any]
 
     mk_x, serialize_x = TypeConstructor(X)
     mk_x_nonstrict, serialize_x_nonstrict = TypeConstructor & flags.NonStrictPrimitives ^ X
@@ -101,7 +101,7 @@ def test_test_union_primitive_and_compound_types():
 
 def test_union_mappings():
     class X(NamedTuple):
-        x: Optional[Mapping[Any, Any]] = None
+        x: None | Mapping[Any, Any] = None
 
     mk_x, serialize_x = typeit.TypeConstructor ^ X
     serialize_x(mk_x({'x': None}))
@@ -110,7 +110,7 @@ def test_union_mappings():
 
 def test_union_errors():
     class X(NamedTuple):
-        x: Optional[int]
+        x: int | None
 
     mk_x, serialize_x = typeit.TypeConstructor ^ X
 

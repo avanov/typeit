@@ -134,7 +134,7 @@ def test_literals():
 
 def test_literals_included():
     class X(NamedTuple):
-        x: Union[Literal[1], None]
+        x: Literal[1] | None
         y: Optional[Literal[1]]
         z: Sequence[Literal[1]]
 
