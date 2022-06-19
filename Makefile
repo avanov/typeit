@@ -9,6 +9,12 @@ PROJECT_ROOT              := $(PROJECT_MKFILE_DIR)
 BUILD_DIR                 := $(PROJECT_ROOT)/build
 DIST_DIR                  := $(PROJECT_ROOT)/dist
 
+update:
+	python -m pip install -U pip
+	python -m pip install -r $(PROJECT_ROOT)/requirements/minimal.txt
+	python -m pip install -r $(PROJECT_ROOT)/requirements/test.txt
+	python -m pip install -r $(PROJECT_ROOT)/requirements/extras/third_party.txt
+
 test:
 	python -m pytest -s $(PROJECT_ROOT)/tests/
 
