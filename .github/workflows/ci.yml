@@ -9,7 +9,9 @@ jobs:
   tests:
     strategy:
       matrix:
-        python-version: [ 310 311 ]
+        python-version:
+          - 310
+          - 311
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.0
