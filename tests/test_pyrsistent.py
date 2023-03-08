@@ -11,13 +11,15 @@ def test_pyrsistent_types():
         a: ps.typing.PMap[str, Any]
         b: ps.typing.PVector[ps.typing.PMap[str, Any]]
         c: Optional[ps.typing.PMap[str, Any]]
+        d: Optional[ps.typing.PMap]
 
-    mk_x, serialize_x = ty.TypeConstructor ^ X
+    mk_x, serialize_x = ty.type_constructor ^ X
 
     data = {
         'a': {'x': 'x', 'y': 'y'},
         'b': [{'x': 'x', 'y': 'y'}],
-        'c': None
+        'c': None,
+        'd': {'a': 1}
     }
     x = mk_x(data)
     assert isinstance(x.a, ps.PMap)

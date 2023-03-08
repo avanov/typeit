@@ -76,3 +76,17 @@ def test_iter_invalid_serialize():
         serialize_x(x)
     except typeit.Error as e:
         x = list(e)
+
+
+def test_new_init():
+    class X(NamedTuple):
+        a: int
+        b: bool
+
+    a = 1
+    b = True
+    res = utils.new(X)
+    assert res.a == a
+    assert res.b == b
+
+    res1 = utils.new(X, res)

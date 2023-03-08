@@ -1,8 +1,7 @@
 from types import UnionType
 from typing import (
     Type, Tuple, Optional, Any, Union, List, Set,
-    Dict, Sequence, get_type_hints,
-    MutableSet, TypeVar, FrozenSet, Mapping, NamedTuple, ForwardRef, NewType,
+    Dict, Sequence, MutableSet, TypeVar, FrozenSet, Mapping, ForwardRef, NewType,
 )
 
 import inspect
@@ -11,6 +10,8 @@ import collections
 import typing_inspect as insp
 from pyrsistent import pmap, pvector
 from pyrsistent import typing as pyt
+
+from .type_info import get_type_attribute_info, AttrInfo, NoneType
 
 from ..compat import Literal
 from ..definitions import OverridesT
@@ -24,9 +25,6 @@ from .. import interface as iface
 
 T = TypeVar('T')
 MemoType = TypeVar('MemoType')
-
-NoneType = type(None)
-
 
 OverrideT = (   flags._Flag     # flag override
             |   TypeExtension   # new type extension
@@ -442,33 +440,29 @@ def _maybe_node_for_dict(
     if typ in supported_type or get_origin_39(typ) in supported_origin or are_generic_bases_match(generic_bases, supported_origin):
         schema_node_type = schema.nodes.PMapSchema if is_pmap(typ) else schema.nodes.SchemaNode
 
-        if generic_bases:
-            # python 3.9 args
-            key_type, value_type = typ.__args__
-        else:
+        def maybe_non_specified_arguments(mappingType):
             try:
-                key_type, value_type = insp.get_args(typ)
+                kt, kv = insp.get_args(mappingType)
             except ValueError:
                 # Mapping doesn't provide key/value types
-                key_type, value_type = Any, Any
+                kt, kv = Any, Any
+            return kt, kv
+
+        if generic_bases:
+            # python 3.9 args
+            try:
+                key_type, value_type = typ.__args__
+            except AttributeError:
+                # PMap without clarifying type arguments will cause this branch
+                key_type, value_type = maybe_non_specified_arguments(typ)
+        else:
+            key_type, value_type = maybe_non_specified_arguments(typ)
 
         key_node,   memo, forward_refs = decide_node_type(key_type, overrides, memo, forward_refs)
         value_node, memo, forward_refs = decide_node_type(value_type, overrides, memo, forward_refs)
         mapping_type = schema.types.TypedMapping(key_node=key_node, value_node=value_node)
         rv = schema_node_type(mapping_type)
     return rv, memo, forward_refs
-
-
-class AttrInfo(NamedTuple):
-    name: str
-    resolved_type: Type
-    raw_type: Union[Type, ForwardRef]
-
-
-def _type_hints_getter(typ: Type) -> Sequence[AttrInfo]:
-    raw = getattr(typ, '__annotations__', {})
-    existing_only = lambda x: x[1] is not NoneType
-    return [AttrInfo(name, t, raw.get(name, t)) for name, t in filter(existing_only, get_type_hints(typ).items())]
 
 
 def _maybe_node_for_user_type(
@@ -495,7 +489,7 @@ def _maybe_node_for_user_type(
         type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
         # resolve type hints
         attribute_hints = [(field_name, type_var_to_type[type_var])
-                           for field_name, type_var in ((x, raw_type) for x, _resolved_type, raw_type in _type_hints_getter(hints_source))]
+                           for field_name, type_var in ((x, raw_type) for x, _resolved_type, raw_type in get_type_attribute_info(hints_source))]
         # Generic types should not have default values
         defaults_source = lambda: ()
         # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,
@@ -516,7 +510,7 @@ def _maybe_node_for_user_type(
 
     elif is_named_tuple(typ):
         hints_source = typ
-        attribute_hints = [(x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source)]
+        attribute_hints = [(x, raw_type) for x, y, raw_type in get_type_attribute_info(hints_source)]
         get_override_identifier = lambda x: getattr(typ, x)
         defaults_source = typ.__new__
 
@@ -537,7 +531,7 @@ def _maybe_node_for_user_type(
     else:
         # use init-based types
         hints_source = typ.__init__
-        attribute_hints = [(x, raw_type) for x, y, raw_type in _type_hints_getter(hints_source)]
+        attribute_hints = [(x, raw_type) for x, y, raw_type in get_type_attribute_info(hints_source)]
         get_override_identifier = lambda x: (typ, x)
         defaults_source = typ.__init__
 

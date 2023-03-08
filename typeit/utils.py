@@ -1,12 +1,14 @@
 import re
 import keyword
 import string
-from typing import Any, Type, TypeVar, Callable
+import inspect as ins
+from typing import Any, Type, TypeVar, Callable, Optional
 
 from colander import TupleSchema, SequenceSchema
 
 from typeit import flags
 from typeit.definitions import OverridesT
+from typeit.parser import get_type_attribute_info
 from typeit.schema.nodes import SchemaNode
 
 NORMALIZATION_PREFIX = 'overridden__'
@@ -14,7 +16,8 @@ SUPPORTED_CHARS = string.ascii_letters + string.digits
 
 
 T = TypeVar('T', SchemaNode, TupleSchema, SequenceSchema)
-
+A = TypeVar('A')
+B = TypeVar('B')
 
 def normalize_name(name: str,
                    pattern=re.compile('^([_0-9]+).*$')) -> str:
@@ -53,3 +56,25 @@ def clone_schema_node(node: T) -> T:
 
 def get_global_name_overrider(overrides: OverridesT) -> Callable[[str], str]:
     return overrides.get(flags.GlobalNameOverride, flags.Identity)
+
+
+def new(t: Type[A], scope: Optional[B] = None) -> A:
+    """Experimental: Init a type instance from the values of the provided scope, as long as the scope variables
+    have the same names and their types match the types of the attributes being initialised.
+    """
+    if scope is None:
+        f = ins.currentframe().f_back.f_locals
+    else:
+        f_ = scope.__annotations__
+        f = {x: getattr(scope, x) for x in f_}
+
+    tattrs = get_type_attribute_info(t)
+    constr = {}
+    for attr in tattrs:
+        if attr.name not in f:
+            raise AttributeError(f"Could not find attribute {attr.name} for type {t.__class__} in the provided context")
+        ctxval = f[attr.name]
+        if not isinstance(ctxval, attr.resolved_type):
+            raise AttributeError(f"Types do not match: '{attr.name}' has to be {attr.resolved_type} but got {type(ctxval)} instead.")
+        constr[attr.name] = ctxval
+    return t(**constr)
