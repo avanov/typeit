@@ -107,6 +107,10 @@ def _maybe_node_for_primitive(
     return schema.nodes.SchemaNode(schema_type), memo, forward_refs
 
 
+def is_type_var_placeholder(t) -> bool:
+    return isinstance(t, TypeVar)
+
+
 def _maybe_node_for_type_var(
     typ: Type,
     overrides: OverridesT,
@@ -118,7 +122,7 @@ def _maybe_node_for_type_var(
     as TypeVar. Since it's an indicator of a generic collection,
     we can treat it as typing.Any.
     """
-    if isinstance(typ, TypeVar):
+    if is_type_var_placeholder(typ):
         return _maybe_node_for_primitive(Any, overrides, memo, forward_refs)
     return None, memo, forward_refs
 
@@ -487,25 +491,38 @@ def _maybe_node_for_user_type(
         hints_source = get_origin_39(typ) or typ
 
         # now we need to map generic type variables to the bound class types,
-        # e.g. we map Generic[T,U,V, ...] to actual types of MyClass[int, float, str, ...]
+        # e.g. we map Entity[T,U,V, ...] to actual types of Entity[int, float, str, ...]
         generic_repr = insp.get_generic_bases(hints_source)
-        generic_vars_ordered = (insp.get_args(x)[0] for x in generic_repr)
+        generic_vars_ordered = [insp.get_args(x)[0] for x in generic_repr]
         bound_type_args = insp.get_args(typ)
         type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
-        # Resolve type hints.
-        # We have to match all generic type parameter placeholders with the actual types passed as implementations
-        # of the interface. However, we need to keep in mind that not all attributes of the generic type have generic
-        # placeholders. Hence, in places where we cannot find the generic placeholder name, we just assume that there's
-        # no placeholder, and therefore ``type_var`` is automatically a concrete type
-        attribute_hints = [
-            (   field_name
-            ,   type_var_to_type.get(type_var_or_concrete_type) or type_var_or_concrete_type
-            )
-            for field_name, type_var_or_concrete_type in (
-                (x, raw_type)
-                for x, _resolved_type, raw_type in get_type_attribute_info(hints_source)
-            )
-        ]
+        if type_var_to_type:
+            # Resolve type hints.
+            # We have to match all generic type parameter placeholders with the actual types passed as implementations
+            # of the interface. However, we need to keep in mind that not all attributes of the generic type have generic
+            # placeholders. Hence, in places where we cannot find the generic placeholder name, we just assume that there's
+            # no placeholder, and therefore ``type_var`` is automatically a concrete type
+            attribute_hints = [
+                (   field_name
+                ,   type_var_to_type.get(type_var_or_concrete_type) or type_var_or_concrete_type
+                )
+                for field_name, type_var_or_concrete_type in (
+                    (x, raw_type)
+                    for x, _resolved_type, raw_type in get_type_attribute_info(hints_source)
+                )
+            ]
+        else:
+            # Here we have a situation with a concrete type after the generic type is clarified
+            # into a concrete type, i.e. when we have Entity[T] and later:
+            # class MyType(Entity[MyOtherType]): ...
+            #
+            # In this situation type_var_to_type will be empty, and we need to infer attributes
+            # of MyType via concrete types
+            clarified = iter(generic_vars_ordered)
+            attribute_hints = [
+                (attr_name, next(clarified) if is_type_var_placeholder(raw_type) else raw_type)
+                for attr_name, _resolved_type, raw_type in get_type_attribute_info(hints_source)
+            ]
         # Generic types should not have default values
         defaults_source = lambda: ()
         # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,
