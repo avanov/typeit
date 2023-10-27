@@ -105,10 +105,19 @@ class Structure(meta.Mapping):
         r = super().deserialize(node, cstruct)
         if r is Null:
             return r
-        return self.typ(**{
+        d = {
             self.deserialize_overrides.get(k, k): v
             for k, v in r.items()
-        })
+        }
+        try:
+            return self.typ(**d)
+        except TypeError:
+            raise Invalid(
+                node,
+                "Are you trying to use generically defined type Name(Generic[A]) via Name[<MyType>]? "
+                "Python doesn't support it, you have to use subclassing with a concrete type, like "
+                "class MySubtype(Name[ConcreteType])"
+            )
 
     def serialize(self, node, appstruct: iface.IType) -> t.Mapping[str, t.Any]:
         if appstruct is Null:
