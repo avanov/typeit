@@ -480,16 +480,32 @@ def _maybe_node_for_user_type(
 
     if is_generic:
         # get the base class that was turned into Generic[T, ...]
-        hints_source = get_origin_39(typ)
+        # For generic types without clarification this is get_origin, otherwise if the generic type is already
+        # clarified (via subclassing like class MyClass(GenericBase[ConcreteType]): ... ) the generic hints source is
+        # going to be the type itself instead of origins. This second version is actually similar to the else clause
+        # below: "elif is_named_tuple(typ)"
+        hints_source = get_origin_39(typ) or typ
+
         # now we need to map generic type variables to the bound class types,
         # e.g. we map Generic[T,U,V, ...] to actual types of MyClass[int, float, str, ...]
         generic_repr = insp.get_generic_bases(hints_source)
         generic_vars_ordered = (insp.get_args(x)[0] for x in generic_repr)
         bound_type_args = insp.get_args(typ)
         type_var_to_type = pmap(zip(generic_vars_ordered, bound_type_args))
-        # resolve type hints
-        attribute_hints = [(field_name, type_var_to_type[type_var])
-                           for field_name, type_var in ((x, raw_type) for x, _resolved_type, raw_type in get_type_attribute_info(hints_source))]
+        # Resolve type hints.
+        # We have to match all generic type parameter placeholders with the actual types passed as implementations
+        # of the interface. However, we need to keep in mind that not all attributes of the generic type have generic
+        # placeholders. Hence, in places where we cannot find the generic placeholder name, we just assume that there's
+        # no placeholder, and therefore ``type_var`` is automatically a concrete type
+        attribute_hints = [
+            (   field_name
+            ,   type_var_to_type.get(type_var_or_concrete_type) or type_var_or_concrete_type
+            )
+            for field_name, type_var_or_concrete_type in (
+                (x, raw_type)
+                for x, _resolved_type, raw_type in get_type_attribute_info(hints_source)
+            )
+        ]
         # Generic types should not have default values
         defaults_source = lambda: ()
         # Overrides should be the same as class-based ones, as Generics are not NamedTuple classes,

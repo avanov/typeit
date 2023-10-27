@@ -2,10 +2,11 @@
 CHANGELOG
 =========
 
-3.11.1.1
+3.11.1.2
 ========
 
 * Fixed bug in Union of literals serialisation.
+* Fixed bug in concrete subclasses of generic classes.
 
 
 3.11.0.0
