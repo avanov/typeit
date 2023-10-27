@@ -2,6 +2,12 @@
 CHANGELOG
 =========
 
+3.11.1.1
+========
+
+* Fixed bug in Union of literals serialisation.
+
+
 3.11.0.0
 ========
 

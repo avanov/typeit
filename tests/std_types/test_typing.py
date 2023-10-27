@@ -1,6 +1,6 @@
 import collections
 from enum import Enum
-from typing import Mapping, Any, Union, Optional, Sequence, Dict, Type
+from typing import Mapping, Any, Optional, Sequence, Dict, Type
 from typing import NamedTuple
 
 from pyrsistent.typing import PMap

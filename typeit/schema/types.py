@@ -301,6 +301,13 @@ class Union(meta.SchemaType):
         self.variant_schema_types: t.Set[meta.SchemaType] = {
             x.typ for _, x in variant_nodes
         }
+        # The literals collections are needed for a corner case where the union is constructed out of
+        # literal variants, each of which should be able to serialise into primitive values directly without further check.
+        # That is, if ``appstruct`` is a primitive type, and if the union has literal values and those values match the
+        # ``appstruct``, then appstruct is already in a proper serialised form.
+        self.variant_schema_literals: t.FrozenSet[t.Any] = frozenset().union(
+            *[x.variants for x in self.variant_schema_types if isinstance(x, Literal)]
+        )
 
     def __repr__(self) -> str:
         return f'Optional({self.variant_schema_types})' if len(self.variant_schema_types) == 1 else f'Union({self.variant_schema_types})'
@@ -358,6 +365,11 @@ class Union(meta.SchemaType):
         struct_type = type(appstruct)
 
         prim_schema_type = self.primitive_types.get(struct_type)
+
+        # special case for unions consisting of literals among other things
+        if prim_schema_type and appstruct in self.variant_schema_literals:
+            return appstruct
+
         if prim_schema_type in self.variant_schema_types:
             try:
                 return prim_schema_type.serialize(node, appstruct)

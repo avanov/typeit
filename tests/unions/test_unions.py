@@ -1,5 +1,5 @@
 import json
-from typing import NamedTuple, Union, Any, Dict, Optional, Mapping
+from typing import NamedTuple, Union, Any, Dict, Optional, Mapping, Literal
 
 import pytest
 from inflection import camelize
@@ -118,6 +118,18 @@ def test_union_errors():
         mk_x({'x': '1'})
     with pytest.raises(Error):
         serialize_x(X(x="5"))
+
+
+def test_union_literals():
+    Filter = Literal['All'] | Literal['all'] | None
+
+    class X(NamedTuple):
+        x: Filter
+
+    mk_x, serialize_x = typeit.TypeConstructor ^ X
+
+    x = X(x='all')
+    serialize_x(x)
 
 
 # def test_nested_unions_openapi():

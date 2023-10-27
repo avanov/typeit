@@ -14,6 +14,7 @@ update:
 	python -m pip install -r $(PROJECT_ROOT)/requirements/minimal.txt
 	python -m pip install -r $(PROJECT_ROOT)/requirements/test.txt
 	python -m pip install -r $(PROJECT_ROOT)/requirements/extras/third_party.txt
+	python -m pip install -e $(PROJECT_ROOT)
 
 test:
 	python -m pytest -s $(PROJECT_ROOT)/tests/
